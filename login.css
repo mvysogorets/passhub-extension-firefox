@@ -1,0 +1,103 @@
+
+@font-face {
+  font-family: OpenSans;
+  src: url("fonts/OpenSans-Regular.ttf");
+}
+@font-face {
+  font-family: OpenSansBold;
+  src: url("fonts/OpenSans-Bold.ttf");
+}
+/*
+#login-background {
+  height: 100%;
+  background-image: url("login_background.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+
+#login-root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(27, 27, 38, 0.6);
+}
+*/
+
+.rectangle640 {
+/*  width: 680px;
+  height: 724px;
+  border-radius: 22px;
+  */
+  
+  margin: 30px 0;
+
+  background: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-family: "OpenSans";
+  /*font-family: sans-serif; */
+  position: relative;
+}
+
+.rectangle1237 {
+  height: 48px;
+
+  background: #1b1b26;
+  border-radius: 12px 12px 0 0;
+
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 24px;
+
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rectangle1237a {
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  color: #1b1b26;
+}
+
+#qrcode {
+  margin: -20px;
+  min-height:256px;
+}
+
+.rectangle1237c {
+  height: 48px;
+
+  background: #1b1b26;
+  border-radius: 0 0 12px 12px;
+
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 24px;
+
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.help-contact-white {
+  display: flex;
+  justify-content: space-between;
+  color:white;
+  width: 210px;
+}
+
+.login-page {
+  display:none;
+}
