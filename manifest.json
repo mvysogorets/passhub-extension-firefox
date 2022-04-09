@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "version": "0.1",
+  "name": "passhub.net",
+  "description": "username/password and bank card data automatic form filler",
+  "icons": {
+    "48": "images/passhub-lock.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "passhub-autofill@wwpass.com"
+    }
+  },
+
+  "background": {
+    "scripts": ["background.js"]
+  },
+
+  "browser_action": {
+    "default_icon": {
+      "16": "images/passhub-lock.svg",
+      "32": "images/passhub-lock.svg",
+      "48": "images/passhub-lock.svg",
+      "64": "images/passhub-lock.svg",
+      "128": "images/passhub-lock.svg"
+    },
+    "default_popup": "popup.html"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["*://*.mozilla.org/*"],
+      "js": ["borderify.js"]
+    }
+  ],
+
+  "permissions": ["activeTab", "tabs", "https://*.passhub.net/*"]
+}

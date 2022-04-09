@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="login.css">
+
+    <title>Document</title>
+  </head>
+  <body>
+    <div class='header'>
+      <div>
+        <img src='images/passhub_logo.svg' height=24 style="margin-top:36px;"/>
+        <div style="display:flex; margin-top:40px">
+          <div class="help" >
+            
+          </div>
+          <div class="close-popup" >
+          </div>
+          <!--
+          <img src='images/help-hover.svg' height=20 style="margin-top:40px; margin-right: 20px;"/>
+          <img src='images/close-hover.svg' height=20 style="margin-top:40px;"/>
+          -->
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="advise"
+      style="display: none; margin: 13px 40px 40px; width: 320px;"
+    >
+      <div
+        style="
+          font-family: OpenSansBold;
+          font-style: normal;
+          font-weight: bold;
+          font-size: 14px;
+          line-height: 19px;
+          color: #1b1b26;
+          margin-bottom: 9px;
+        "
+      >
+        Found:
+      </div>
+    </div>    
+
+    <div
+    id="not-found"
+    style="margin: 0 40px; min-height: 62px; width: 320px; display: none;"
+  >
+    <div
+      style="
+        display: flex;
+        margin-left: 2px;
+        margin-top: 18px;
+        font-family: OpenSans;
+        font-style: normal;
+        font-weight: normal;
+        font-size: 16px;
+        line-height: 22px;
+
+        color: #1b1b26;
+      "
+    >
+      <img src="images/search.svg" />
+      <div
+        style="margin-left: 22px; overflow: hidden; text-overflow: ellipsis;"
+      >
+        No suitable accounts found for
+        <br />
+        <span id="not-found-hostname" style="font-family: OpenSansBold;">
+          XXX
+        </span>
+      </div>
+    </div>
+  </div>
+
+
+    <div class="login-page" id="login-background">
+      <div id="login-root">
+        <div class="rectangle640">
+          <div style= "width: 256px">
+            <div class="rectangle1237">To sign-in, scan the QR code</div>
+            <div class="rectangle1237a">
+              <div style="margin-top: 0">
+                with <b>WWPass™ Key App</b>
+              </div>
+            </div>
+            <div id="qrcode"></div>
+            <div class="rectangle1237b">
+              <div style= "margin-bottom: 0; color: white;">
+                or connect <b>WWPass Key</b>
+              </div>
+            </div>
+            <div class="rectangle1237c">
+              <div class="help-contact-white">
+                <div
+                  style="display: flex; cursor: pointer;"
+                >
+                  <svg style="width: 20px; height: 20px; margin-right: 11px;">
+                    <use href="#help-white-ico"></use>
+                  </svg>
+                  Help
+                </div>
+
+                <div style="display: flex; cursor: pointer;">
+                  <svg
+                    style="
+                      width: 20px;
+                      height: 20px;
+                      margin-right: 11px;
+                      margin-top: 4px;"
+                  >
+                    <use href="#contact-white-ico"></use>
+                  </svg>
+                  Contact us
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+      <symbol id="help-white-ico" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path opacity="0.2" d="M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19Z" fill="white"/>
+        <path d="M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19Z" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9.9585 11.3334V10.5834C10.4777 10.5834 10.9852 10.4294 11.4169 10.141C11.8485 9.85254 12.185 9.44258 12.3837 8.96292C12.5824 8.48326 12.6343 7.95546 12.5331 7.44626C12.4318 6.93706 12.1818 6.46933 11.8147 6.10222C11.4475 5.73511 10.9798 5.4851 10.4706 5.38381C9.96141 5.28253 9.43361 5.33451 8.95395 5.53319C8.4743 5.73187 8.06433 6.06832 7.77589 6.5C7.48745 6.93168 7.3335 7.4392 7.3335 7.95838" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10.125 15.9166C10.7463 15.9166 11.25 15.4129 11.25 14.7916C11.25 14.1703 10.7463 13.6666 10.125 13.6666C9.50368 13.6666 9 14.1703 9 14.7916C9 15.4129 9.50368 15.9166 10.125 15.9166Z" fill="white"/>
+      </symbol>
+
+      <symbol id="contact-white-ico" width="20" height="15" viewBox="0 0 20 15" fill="none">
+        <path opacity="0.2" d="M19 1L10 9.25L1 1H19Z" fill="white"/>
+        <path d="M1 1H19V13.75C19 13.9489 18.921 14.1397 18.7803 14.2803C18.6397 14.421 18.4489 14.5 18.25 14.5H1.75C1.55109 14.5 1.36032 14.421 1.21967 14.2803C1.07902 14.1397 1 13.9489 1 13.75V1Z" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19 1L10 9.25L1 1" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    </svg>
+
+    <script src='popup.js'></script>
+
+<!--
+      <div style="margin:0 40px 40px">
+      <div style=
+        "font-family: OpenSans;
+        font-style: normal;
+        font-weight: bold;
+        font-size: 14px;
+        line-height: 19px;
+        color: #1B1B26;
+        margin-bottom:9px"
+      >
+        Found:      
+      </div>
+      <div class="found-entry">
+        <div class='found-title'>
+          GitHub wwpass
+        </div>
+        <div class="found-safe">
+          KeePass
+        </div>
+      </div>
+      <div class="found-entry">
+        <div class='found-title'>
+          Sign in GitHub
+        </div>
+        <div class="found-footer">
+          <div class="found-safe">
+            Personal
+          </div>
+          <div class="found-username">
+            username
+          </div>
+      </div>
+      </div>
+      <div class="found-entry">
+        <div class='found-title'>
+          GitHub mvysogorets
+        </div>
+        <div class="found-safe">
+          Personal
+        </div>
+      </div>
+      <div class="found-entry">
+        <div class='found-title'>
+          GitHub
+        </div>
+        <div class="found-footer">
+          <div class="found-safe">
+            Work
+          </div>
+          <div class="found-username">
+            1234madmax@gmail.com
+          </div>
+        </div>
+    </div>
+    </div>
+          <div class="passhub-logo">PassHub</div>
+
+          
+                  onclick=' () => window.open("https://passhub.net/doc", "passhub_doc", [])'
+
+-->
+
+  </body>
+</html>

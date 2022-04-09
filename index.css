@@ -1,0 +1,91 @@
+@font-face {
+  font-family: OpenSans;
+  src: url("fonts/OpenSans-Regular.ttf");
+}
+
+body {
+  min-width: 400px;
+  padding: 0;
+  margin: 0;
+}
+
+.header {
+  width: 400px;
+  height: 80px;
+  background-image: url("images/ext-bkg1.jpg");
+  background-size: 400px 80px;
+  margin-bottom: 13px;
+}
+
+.header > div {
+  margin: 0 40px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.found-entry {
+  font-family: OpenSans;
+  background-color: rgba(27, 27, 38, 0.15);
+  height: 56px;
+  margin-bottom: 2px;
+  padding-top: 5px;
+  padding-left: 20px;
+}
+
+.found-entry:hover {
+  background-color: rgba(27, 27, 38, 0.2);
+}
+
+.found-title {
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 18px;
+  line-height: 25px;
+  margin-bottom: 4px;
+  color: #1b1b26;
+}
+
+.found-safe {
+  font-family: OpenSans;
+  font-style: italic;
+  font-weight: normal;
+  font-size: 14px;
+  line-height: 19px;
+  color: #1b1b26;
+}
+
+.found-username {
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 14px;
+  line-height: 19px;
+  color: #8d8d94;
+}
+
+.found-footer {
+  display: flex;
+  justify-content: space-between;
+}
+
+.close-popup {
+  width: 20px;
+  height: 20px;
+  background-image: url("images/close.svg");
+}
+
+.close-popup:hover {
+  background-image: url("images/close-hover.svg");
+}
+
+.help {
+  width: 20px;
+  height: 20px;
+  margin-right: 20px;
+  background-image: url("images/help.svg");
+}
+
+.help:hover {
+  background-image: url("images/help-hover.svg");
+}
