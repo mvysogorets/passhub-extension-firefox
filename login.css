@@ -30,7 +30,7 @@
   border-radius: 22px;
   */
   
-  margin: 30px 0;
+  margin: 30px 0 0 0;
 
   background: #ffffff;
 
@@ -101,3 +101,23 @@
 .login-page {
   display:none;
 }
+
+.logout-div {
+  display:none;
+  cursor:pointer;
+}
+
+.logout-div div{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.open-passhub-tab {
+  cursor:pointer;
+/*
+  display: flex;
+  justify-content:center;
+  padding: 5px 0;
+*/  
+}
+
