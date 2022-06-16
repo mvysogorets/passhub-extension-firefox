@@ -4,6 +4,9 @@
 /node_modules
 /frontend
 /archive
+/publish
+/source
+/images/icon*
 /.pnp
 .pnp.js
 background.js

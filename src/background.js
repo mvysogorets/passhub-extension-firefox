@@ -16,8 +16,6 @@ let webSocket = null;
 let webSocketInterval = null;
 
 
-
-
 let apiUrl="https://ext.trial.passhub.net/";
 let wsUrl="wss://ext.trial.passhub.net/wsapp/";
 
@@ -450,81 +448,3 @@ browser.runtime.onMessage.addListener(
     }
   }
 )
-
-
-/*
-
-let popupConnectionPort;
-
-function connected(p) {
-  portFromCS = p;
-  portFromCS.postMessage({greeting: "hi there content script!"});
-  portFromCS.onMessage.addListener(function(m) {
-    console.log("In background script, received message from content script")
-    console.log(m.greeting);
-  });
-}
-
-browser.runtime.onConnect.addListener(connected);
-
-*/
-
-
-
-
-
-/*
-let portFromCS;
-
-const getSubtle = () => {
-  const crypto = window.crypto || window.msCrypto;
-  return crypto ? (crypto.webkitSubtle || crypto.subtle) : null;
-};
-
-const subtle = getSubtle();
-console.log("background subtle ", subtle);
-subtle.generateKey(
-  {
-  name: "RSA-OAEP",
-  // Consider using a 4096-bit key for systems that require long-term security
-  modulusLength: 2048,
-  publicExponent: new Uint8Array([1, 0, 1]),
-  hash: "SHA-256",
-  },
-  true,
-  ["encrypt", "decrypt"]
-).then((keyPair) => {
-    console.log("background Keypair generated")
-  });
-
-browser.runtime.getBackgroundPage().then( www => {
-  console.log("Background page");
-
-  console.log("www");
-  console.log(www);
-  console.log("www.document");
-  console.log(www.document);
-  const body=www.document.querySelector('body');
-  const newDiv = www.document.createElement("div");
-  console.log(newDiv);
-  newDiv.innerHTML="Hello1";
-  body.appendChild(newDiv);
-  console.log(body);
-  
-});
-
-function bkg_log(message) {
-  console.log("Bkg log ", message);
-}
-
-browser.runtime.onConnect.addListener(port => {
-  console.log("background connected");
-  connected = true;
-  portFromCS = port;
-  portFromCS.postMessage({greeting: "hi there content script!"});
-  portFromCS.onMessage.addListener( m => {
-    console.log("In background script, received message from content script")
-    console.log(m.greeting);
-  });
-});  
-*/
