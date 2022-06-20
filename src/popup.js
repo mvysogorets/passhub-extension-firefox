@@ -1,6 +1,6 @@
 import * as WWPass from 'wwpass-frontend';
 
-const passhubPageUrl = 'https://trial.passhub.net/';
+const passhubPageUrl = 'https://passhub.net/';
 
 const consoleLog = console.log;
 // const consoleLog = () => {};
@@ -55,7 +55,10 @@ document.querySelector('.logout-div').onclick = function (){
 
 document.querySelector('.open-passhub-tab').onclick = function (){
   activatePassHubTab();
+}
 
+document.querySelector('#logo').onclick = function (){
+  activatePassHubTab();
 }
 
 document.querySelector('.contact-us').onclick = function (){
@@ -69,10 +72,8 @@ function loginCallback(urlQuery) {
 }
 
 bgConnectionPort.onMessage.addListener( m => {
-  console.log("popup received message from background script: ");
+  console.log(`popup received message from background script, id ${m.id}`);
   console.log(m);
-  console.log("***");
-  console.log("m.id " + m.id);
 
 
   if(m.id === "login") {

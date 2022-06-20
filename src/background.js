@@ -1,6 +1,7 @@
 import axios from "axios";
-
 import * as passhubCrypto from "./crypto";
+import WsConnection from "./wsConnection";
+
 
 const consoleLog = console.log;
 // const consoleLog = () => {};
@@ -12,13 +13,8 @@ let state = "login";
 let theSafes = [];
 let csrfToken = '';
 
-let webSocket = null;
-let webSocketInterval = null;
-
-
-let apiUrl="https://ext.trial.passhub.net/";
-let wsUrl="wss://ext.trial.passhub.net/wsapp/";
-
+let apiUrl="https://ext.passhub.net/";
+let wsUrl="wss://ext.passhub.net/wsapp/";
 
 function getApiUrl() {
   return apiUrl;
@@ -27,6 +23,20 @@ function getApiUrl() {
 function getWsUrl() {
   return wsUrl;
 }
+
+const wsMessageInd = (message) => {
+  try {
+    const pMessage = JSON.parse(message);
+    if (Array.isArray(pMessage)) {
+      console.log("Safes total: " + pMessage.length);
+      refreshUserData({ broadcast: false });
+    }
+  } catch (err) {
+    console.log("catch 322" + err);
+  }
+}
+
+const wsConnection = new WsConnection(getWsUrl(), wsMessageInd);
 
 function setCsrfToken(t) {
   csrfToken = t;
@@ -51,7 +61,7 @@ function notifyPopup(m) {
 browser.runtime.onConnect.addListener(port =>  {
   popupConnectionPort = port;
   popupConnectionPort.onDisconnect.addListener(port =>  {
-    console.log('disconnected');
+    console.log('background: popup disconnected');
     console.log(port);
     popupConnected = false;
   });
@@ -104,10 +114,8 @@ browser.runtime.onConnect.addListener(port =>  {
       }
     }
     if(message.id === "logout") {
-      webSocket.close();
-      webSocket = null;
-      clearInterval(webSocketInterval);
-      webSocketInterval = null;
+      wsConnection.close();
+
       console.log('logout received');
       state = "logout_request";
       console.log('state ' + state);
@@ -133,11 +141,12 @@ browser.runtime.onConnect.addListener(port =>  {
         }
       });
     }
-
+/*
     if(message.id === "openPasshubWindow") {
       browser.tabs.create({url:'./frontend/index.html'});
       return;
     }
+*/
   });
   popupConnectionPort.postMessage({id: state, urlBase: getApiUrl()})
 }); 
@@ -249,59 +258,6 @@ function decryptSafes(eSafes) {
   return Promise.all(promises);
 }
 
-const createWebSocket = () => {
-  const self = this;
-
-  const wsURL = getWsUrl();
-  console.log(wsURL);
-
-  webSocket = new WebSocket(wsURL);
-  console.log(webSocket);
-  console.log(new Date());
-
-  // Connection opened
-  webSocket.addEventListener("open", function (event) {
-    webSocket.send("Hello Server!");
-  });
-
-  webSocket.addEventListener("close", function (event) {
-    console.log("Bye Server!");
-    console.log(webSocket);
-    console.log(new Date());
-  });
-
-  // Listen for messages
-  webSocket.addEventListener("message", function (event) {
-    console.log("Message from server ", event.data);
-    const message = event.data.toString();
-    console.log("sMessage from server ", message);
-    if (message === "pong") {
-      return;
-    }
-    try {
-      const pMessage = JSON.parse(message);
-      if (Array.isArray(pMessage)) {
-        console.log("Safes total: " + pMessage.length);
-        refreshUserData({ broadcast: false });
-      }
-    } catch (err) {
-      console.log("catch 322" + err);
-    }
-  });
-
-  // Chrome, no heart-beat: 1 min timeout
-  webSocketInterval = setInterval(() => {
-    if (webSocket) {
-      webSocket.send("ping");
-    }
-  }, 15000);
-};
-
-
-
-
-
-
 function downloadUserData()  {
   axios
   .post(`${getApiUrl()}get_user_datar.php`, {
@@ -326,7 +282,7 @@ function downloadUserData()  {
           state = "signed";
           consoleLog("state = signed");
           popupConnectionPort.postMessage({id: state});
-          createWebSocket();
+          wsConnection.connect()
         });
       })
     }
@@ -448,3 +404,64 @@ browser.runtime.onMessage.addListener(
     }
   }
 )
+
+
+
+
+/*
+const createWebSocket = () => {
+  const self = this;
+
+  const wsURL = getWsUrl();
+  console.log(wsURL);
+
+  try {
+    webSocket = new WebSocket(wsURL);
+  } catch(err) {
+    console.log('catch 263');
+  }
+  console.log(webSocket);
+  console.log(new Date());
+
+  // Connection opened
+  webSocket.addEventListener("open", function (event) {
+    webSocket.send("Hello Server!");
+  });
+
+  webSocket.addEventListener("error", function (event) {
+    console.log("websocket error");
+  });
+
+  webSocket.addEventListener("close", function (event) {
+    console.log("Bye websocket Server!");
+    console.log(webSocket);
+    console.log(new Date());
+  });
+
+  webSocket.addEventListener("message", function (event) {
+    console.log("Message from server ", event.data);
+    const message = event.data.toString();
+    console.log("sMessage from server ", message);
+    if (message === "pong") {
+      return;
+    }
+    try {
+      const pMessage = JSON.parse(message);
+      if (Array.isArray(pMessage)) {
+        console.log("Safes total: " + pMessage.length);
+        refreshUserData({ broadcast: false });
+      }
+    } catch (err) {
+      console.log("catch 322" + err);
+    }
+  });
+
+  // Chrome, no heart-beat: 1 min timeout
+  webSocketInterval = setInterval(() => {
+    if (webSocket) {
+      webSocket.send("ping");
+    }
+  }, 15000);
+};
+
+*/
