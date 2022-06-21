@@ -11,7 +11,6 @@
       "id": "passhub-autofill@wwpass.com"
     }
   },
-
   "background": {
     "scripts": ["background.js"]
   },
@@ -26,13 +25,6 @@
     },
     "default_popup": "popup.html"
   },
-
-  "content_scripts": [
-    {
-      "matches": ["*://*.mozilla.org/*"],
-      "js": ["borderify.js"]
-    }
-  ],
 
   "permissions": ["activeTab", "tabs", "https://*.passhub.net/*"]
 }

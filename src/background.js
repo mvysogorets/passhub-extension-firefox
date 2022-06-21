@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as passhubCrypto from "./crypto";
 import WsConnection from "./wsConnection";
+import {getApiURL, getWsURL} from './utils';
 
 
 const consoleLog = console.log;
@@ -12,17 +13,6 @@ console.log("background started");
 let state = "login";
 let theSafes = [];
 let csrfToken = '';
-
-let apiUrl="https://ext.passhub.net/";
-let wsUrl="wss://ext.passhub.net/wsapp/";
-
-function getApiUrl() {
-  return apiUrl;
-}
-
-function getWsUrl() {
-  return wsUrl;
-}
 
 const wsMessageInd = (message) => {
   try {
@@ -36,7 +26,7 @@ const wsMessageInd = (message) => {
   }
 }
 
-const wsConnection = new WsConnection(getWsUrl(), wsMessageInd);
+const wsConnection = new WsConnection(getWsURL(), wsMessageInd);
 
 function setCsrfToken(t) {
   csrfToken = t;
@@ -64,6 +54,9 @@ browser.runtime.onConnect.addListener(port =>  {
     console.log('background: popup disconnected');
     console.log(port);
     popupConnected = false;
+    if(state === "create account") {
+      state="login";
+    }
   });
   
   console.log('bg got connection');
@@ -81,14 +74,21 @@ browser.runtime.onConnect.addListener(port =>  {
     if(message.id === "loginCallback") {
       state = "signing in..";
       popupConnectionPort.postMessage({id: state});
-      axios.get(`${getApiUrl()}loginSPA.php${message.urlQuery}`, {})
+      axios.get(`${getApiURL()}loginSPA.php${message.urlQuery}`, {})
       .then( reply => {
         console.log(reply);
-        console.log("csrf token:", reply.headers["x-csrf-token"]);
-        setCsrfToken(reply.headers["x-csrf-token"]);
         const result = reply.data;
+
+        if (result.status == "not found") {
+          state = "create account";
+          popupConnectionPort.postMessage({id: state});
+          return;
+        }
+
         if (result.status == "Ok") {
-          state = "getting data..";
+          console.log("csrf token:", reply.headers["x-csrf-token"]);
+          setCsrfToken(reply.headers["x-csrf-token"]);
+            state = "getting data..";
           popupConnectionPort.postMessage({id: state});
           downloadUserData();
         }
@@ -124,7 +124,7 @@ browser.runtime.onConnect.addListener(port =>  {
       } catch(err) {
         console.log('catch 144')
       }
-      axios.get(`${getApiUrl()}logoutSPA.php`, {})
+      axios.get(`${getApiURL()}logoutSPA.php`, {})
       .then((reply) => {
         console.log(reply);
         // console.log("csrf token:", reply.headers["x-csrf-token"]);
@@ -148,7 +148,7 @@ browser.runtime.onConnect.addListener(port =>  {
     }
 */
   });
-  popupConnectionPort.postMessage({id: state, urlBase: getApiUrl()})
+  popupConnectionPort.postMessage({id: state, urlBase: getApiURL()})
 }); 
 
 
@@ -260,7 +260,7 @@ function decryptSafes(eSafes) {
 
 function downloadUserData()  {
   axios
-  .post(`${getApiUrl()}get_user_datar.php`, {
+  .post(`${getApiURL()}get_user_datar.php`, {
     verifier: getVerifier(),
   })
   .then((result) => {
@@ -293,7 +293,7 @@ const refreshUserData = ({ safes = []} = {}) => {
   console.log(safes);
   const self = this;
   axios
-    .post(`${getApiUrl()}get_user_datar.php`, {
+    .post(`${getApiURL()}get_user_datar.php`, {
       verifier: getVerifier(),
     })
     .then((response) => {
@@ -379,7 +379,7 @@ browser.runtime.onMessage.addListener(
       }
 
       if((state === "login")) {
-        sendResponse({id: state, urlBase: getApiUrl()});
+        sendResponse({id: state, urlBase: getApiURL()});
         return;
       } else if(state === "signed") {
         console.log(advise(request.url));
@@ -391,7 +391,7 @@ browser.runtime.onMessage.addListener(
     if(request.id === "loginCallback") {
       state = "authenticating";
       sendResponse({id: state});
-      axios.get(`${getApiUrl()}loginSPA.php${request.urlQuery}`)
+      axios.get(`${getApiURL()}loginSPA.php${request.urlQuery}`)
       .then((reply) => {
         console.log(reply);
         // console.log("csrf token:", reply.headers["x-csrf-token"]);

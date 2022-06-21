@@ -1,6 +1,7 @@
 import * as WWPass from 'wwpass-frontend';
+import {getServerURL} from './utils';
 
-const passhubPageUrl = 'https://passhub.net/';
+// const passhubPageUrl = 'https://passhub.net/';
 
 const consoleLog = console.log;
 // const consoleLog = () => {};
@@ -10,7 +11,7 @@ function activatePassHubTab() {
   // const urlList = manifest.externally_connectable.matches;
 
   // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
-  browser.tabs.query({ url: [`${passhubPageUrl}*`] })
+  browser.tabs.query({ url: [`${getServerURL()}*`] })
   .then( passHubTabs => {
     for (const tab of passHubTabs) {
       if (tab.url.includes('doc')) {
@@ -20,7 +21,7 @@ function activatePassHubTab() {
       window.close();
       return;
     }
-    window.open(`${passhubPageUrl}`, 'target="_blank"');
+    window.open(getServerURL(), 'target="_blank"');
     window.close();
   })
   .catch(err => {
@@ -53,9 +54,24 @@ document.querySelector('.logout-div').onclick = function (){
   window.close();
 }
 
+
+for (const e of document.querySelectorAll('.open-passhub-tab')) {
+  e.onclick = function (){
+    activatePassHubTab();
+  }
+}
+
+
+/*
+document.querySelector('.open-passhub-tab1').onclick = function (){
+  activatePassHubTab();
+}
+
+
 document.querySelector('.open-passhub-tab').onclick = function (){
   activatePassHubTab();
 }
+*/
 
 document.querySelector('#logo').onclick = function (){
   activatePassHubTab();
@@ -74,6 +90,7 @@ function loginCallback(urlQuery) {
 bgConnectionPort.onMessage.addListener( m => {
   console.log(`popup received message from background script, id ${m.id}`);
   console.log(m);
+//   console.log(m.id);
 
 
   if(m.id === "login") {
@@ -90,6 +107,15 @@ bgConnectionPort.onMessage.addListener( m => {
     });
     return;            
   }
+
+  if(m.id == "create account") {
+    document.querySelector(".login-page").style.display = "none";
+    document.querySelector("#wait").style.display = "none";
+    document.querySelector(".lower-tab").style.display = "none";
+    document.querySelector(".create-account").style.display = "block";
+    return;
+  }
+
   if(m.id === "signed") {
     document.querySelector(".login-page").style.display = "none";
     document.querySelector(".logout-div").style.display = "block";
