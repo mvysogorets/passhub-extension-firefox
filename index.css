@@ -96,3 +96,18 @@ body {
 .help:hover {
   background-image: url("images/help-hover.svg");
 }
+
+#logo {
+  cursor:pointer;
+  margin-top:36px;  
+  width: 120px;
+  height:24px;
+
+}
+
+#logo:hover {
+  margin-top:35px;
+  margin-left:-1px;
+  width: 126px;
+  height:26px;
+}
