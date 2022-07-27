@@ -12,7 +12,7 @@
   <body>
     <div class='header'>
       <div>
-        <img id="logo" title="Open page PassHub.net" src='images/passhub_logo.svg'/>
+        <img id="logo" class="open-passhub-tab" title="Open page PassHub.net" src='images/passhub_logo.svg'/>
 
         <div style="display:flex; margin-top:40px">
           <div class="help help-link" >          
@@ -67,36 +67,11 @@
 
       "
     >PassHub.net</span>    
-<!--
-      <div>
-        <span
-          style="
-            font-family: OpenSans;
-            font-style: normal;
-            font-weight: normal;
-            font-size: 16px;
-            line-height: 22px;
-            color: #1b1b26;
-            margin-right:0.1em;
-        "
-        ></span>
-        <span class="open-passhub-tab"
-          style="
-            color: #31ba68;
-            font-family: OpenSansBold;
-            font-style: normal;
-            /* font-weight: bold; */
-            font-size: 15.5px;
-            line-height: 21px;
-            cursor:pointer;
-          "
-        >PassHub.net</span>    
-      </div>
-    -->
       <div>      
       and scan the QR code.
       </div>
     </div>
+
 
     <div
     id="not-found"
@@ -117,7 +92,9 @@
       "
     >
       <img src="images/search.svg" />
-      <div
+
+
+      <div id="not-found-password"
         style="margin-left: 22px; overflow: hidden; text-overflow: ellipsis;"
       >
         No suitable accounts found for
@@ -126,6 +103,13 @@
           XXX
         </span>
       </div>
+      
+      <div id="no-card-records"
+        style="margin-left: 22px; overflow: hidden; text-overflow: ellipsis;"
+      >
+        No payment card records<br> in your account 
+      </div>
+
     </div>
   </div>
 

@@ -12,9 +12,12 @@ function getServerURL() {
   return `https://${serverURL}/`;
 }
 
+const consoleLog = console.log;
+// const consoleLog = () => {};
 
 export {
   getApiURL,
   getWsURL,
-  getServerURL
+  getServerURL,
+  consoleLog
 }

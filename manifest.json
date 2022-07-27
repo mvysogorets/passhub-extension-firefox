@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "version": "0.1",
+  "version": "0.3",
   "name": "passhub.net",
   "description": "username/password and bank card data automatic form filler",
   "icons": {
@@ -8,7 +8,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "passhub-autofill@wwpass.com"
+      "id": "passhub-autofill-v1@wwpass.com"
     }
   },
   "background": {

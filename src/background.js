@@ -1,14 +1,9 @@
 import axios from "axios";
 import * as passhubCrypto from "./crypto";
 import WsConnection from "./wsConnection";
-import {getApiURL, getWsURL} from './utils';
+import {getApiURL, getWsURL, consoleLog} from './utils';
 
-
-const consoleLog = console.log;
-// const consoleLog = () => {};
-
-console.log("background started");
-
+consoleLog("background started");
 
 let state = "login";
 let theSafes = [];
@@ -18,11 +13,11 @@ const wsMessageInd = (message) => {
   try {
     const pMessage = JSON.parse(message);
     if (Array.isArray(pMessage)) {
-      console.log("Safes total: " + pMessage.length);
+      consoleLog("Safes total: " + pMessage.length);
       refreshUserData({ broadcast: false });
     }
   } catch (err) {
-    console.log("catch 322" + err);
+    consoleLog("catch 322" + err);
   }
 }
 
@@ -30,9 +25,9 @@ const wsConnection = new WsConnection(getWsURL(), wsMessageInd);
 
 function setCsrfToken(t) {
   csrfToken = t;
-  window.localStorage.setItem('csrf', t);
-  consoleLog('csrfToken');
-  consoleLog(csrfToken);
+  //window.localStorage.setItem('csrf', t);
+  console.log('csrfToken');
+  console.log(csrfToken);
 }
 
 function getVerifier() {
@@ -51,32 +46,28 @@ function notifyPopup(m) {
 browser.runtime.onConnect.addListener(port =>  {
   popupConnectionPort = port;
   popupConnectionPort.onDisconnect.addListener(port =>  {
-    console.log('background: popup disconnected');
-    console.log(port);
+    consoleLog('background: popup disconnected');
+    consoleLog(port);
     popupConnected = false;
     if(state === "create account") {
       state="login";
     }
   });
   
-  console.log('bg got connection');
-  console.log(popupConnectionPort);
+  consoleLog('bg got connection with');
+  consoleLog(popupConnectionPort);
 
   popupConnected = true;
   popupConnectionPort.onMessage.addListener(function(message,sender){
-    console.log('received');
-    console.log(message);
-    if(message.id === "logout") {
-      console.log('!!!!!!');
-
-    }
+    consoleLog('bg received');
+    consoleLog(message);
 
     if(message.id === "loginCallback") {
       state = "signing in..";
       popupConnectionPort.postMessage({id: state});
       axios.get(`${getApiURL()}loginSPA.php${message.urlQuery}`, {})
       .then( reply => {
-        console.log(reply);
+        consoleLog(reply);
         const result = reply.data;
 
         if (result.status == "not found") {
@@ -86,15 +77,15 @@ browser.runtime.onConnect.addListener(port =>  {
         }
 
         if (result.status == "Ok") {
-          console.log("csrf token:", reply.headers["x-csrf-token"]);
+          consoleLog("csrf token:", reply.headers["x-csrf-token"]);
           setCsrfToken(reply.headers["x-csrf-token"]);
-            state = "getting data..";
+          state = "getting data..";
           popupConnectionPort.postMessage({id: state});
           downloadUserData();
         }
       })
       .catch(err => {
-        console.log(err);
+        consoleLog(err);
       });
       return;
     }
@@ -108,26 +99,43 @@ browser.runtime.onConnect.addListener(port =>  {
         hostname = url.pathname;
       }
       if(state === "signed") {
-        console.log(advise(message.url));
-        popupConnectionPort.postMessage({id: 'advise', found: advise(message.url), url: hostname});
+        let foundRecords = advise(message.url);
+        if(foundRecords.length > 0) {
+          consoleLog('bg advise:')
+          consoleLog(foundRecords);
+        } else {
+          consoleLog('bg advise: nothing found')
+        }
+        popupConnectionPort.postMessage({id: 'advise', found: foundRecords, url: hostname});
         return;
       }
     }
+
+    if(message.id === "payment page") {
+      if(state === "signed") {
+        const cards=paymentCards();
+        consoleLog(cards);
+        popupConnectionPort.postMessage({id: 'payment', found: cards});
+        return;
+      }
+    }
+
+
     if(message.id === "logout") {
       wsConnection.close();
 
-      console.log('logout received');
+      consoleLog('logout received');
       state = "logout_request";
-      console.log('state ' + state);
+      consoleLog('state ' + state);
       try {
        popupConnectionPort.postMessage({id: state});
       } catch(err) {
-        console.log('catch 144')
+        consoleLog('catch 144')
       }
       axios.get(`${getApiURL()}logoutSPA.php`, {})
       .then((reply) => {
-        console.log(reply);
-        // console.log("csrf token:", reply.headers["x-csrf-token"]);
+        consoleLog(reply);
+        // consoleLog("csrf token:", reply.headers["x-csrf-token"]);
         //setCsrfToken(reply.headers["x-csrf-token"]);
         const result = reply.data;
         if (result.status == "Ok") {
@@ -282,7 +290,7 @@ function downloadUserData()  {
           state = "signed";
           consoleLog("state = signed");
           popupConnectionPort.postMessage({id: state});
-          wsConnection.connect()
+          wsConnection.connect();
         });
       })
     }
@@ -290,7 +298,7 @@ function downloadUserData()  {
 }
 
 const refreshUserData = ({ safes = []} = {}) => {
-  console.log(safes);
+  consoleLog(safes);
   const self = this;
   axios
     .post(`${getApiURL()}get_user_datar.php`, {
@@ -318,14 +326,38 @@ const refreshUserData = ({ safes = []} = {}) => {
       */
     })
     .catch((error) => {
-      console.log(error);
+      consoleLog(error);
     });
 };
 
 
+function paymentCards() {
+  const result = [];
+  for (let s = 0; s < theSafes.length; s += 1) {
+    const safe = theSafes[s];
+    if (safe.key) {
+      // key!= null => confirmed, better have a class
+      for (const item of safe.rawItems) {
+  
+        if(item.version === 5 && item.cleartext[0] === "card") {
+          result.push({
+            safe: safe.name,
+            title: item.cleartext[1],
+            card: item.cleartext
+          })
+        }
+      }
+    }
+  }
+  consoleLog('paymentCard returns');
+  consoleLog(result);
+
+  return result;
+}
 
 
 function advise(url) {
+
   const u = new URL(url);
   let hostname = u.hostname.toLowerCase();
   if (hostname.substring(0, 4) === "www.") {
@@ -333,14 +365,23 @@ function advise(url) {
   }
   const result = [];
   if (hostname) {
-    for (let s = 0; s < theSafes.length; s += 1) {
-      const safe = theSafes[s];
+    for (const safe of theSafes) {
       if (safe.key) {
         // key!= null => confirmed, better have a class
         const items = safe.rawItems;
-        for (let i = 0; i < items.length; i += 1) {
+
+        for(const item of items) {
+
           try {
-            let itemUrl = items[i].cleartext[3].toLowerCase();
+            if(item.version === 5 && item.cleartext[0] === "card") {
+              continue;
+            }
+
+            let itemUrl = item.cleartext[3].toLowerCase().trim();
+            if(itemUrl.length === 0) {
+              continue;
+            }
+            
             if (itemUrl.substring(0, 4) != "http") {
               itemUrl = "https://" + itemUrl;
             }
@@ -353,12 +394,15 @@ function advise(url) {
             if (itemHost == hostname) {
               result.push({
                 safe: safe.name,
-                title: items[i].cleartext[0],
-                username: items[i].cleartext[1],
-                password: items[i].cleartext[2],
+                title: item.cleartext[0],
+                username: item.cleartext[1],
+                password: item.cleartext[2],
               });
             }
-          } catch (err) {}
+          } catch (err) {
+            console.log('catch 392');
+            // console.log(err); 
+          }
         }
       }
     }
@@ -382,7 +426,7 @@ browser.runtime.onMessage.addListener(
         sendResponse({id: state, urlBase: getApiURL()});
         return;
       } else if(state === "signed") {
-        console.log(advise(request.url));
+        consoleLog(advise(request.url));
         sendResponse({id: 'advise', advise: advise(request.url), url: hostname});
         return;
       }
@@ -393,8 +437,8 @@ browser.runtime.onMessage.addListener(
       sendResponse({id: state});
       axios.get(`${getApiURL()}loginSPA.php${request.urlQuery}`)
       .then((reply) => {
-        console.log(reply);
-        // console.log("csrf token:", reply.headers["x-csrf-token"]);
+        consoleLog(reply);
+        // consoleLog("csrf token:", reply.headers["x-csrf-token"]);
         setCsrfToken(reply.headers["x-csrf-token"]);
         const result = reply.data;
         if (result.status == "Ok") {
@@ -404,64 +448,3 @@ browser.runtime.onMessage.addListener(
     }
   }
 )
-
-
-
-
-/*
-const createWebSocket = () => {
-  const self = this;
-
-  const wsURL = getWsUrl();
-  console.log(wsURL);
-
-  try {
-    webSocket = new WebSocket(wsURL);
-  } catch(err) {
-    console.log('catch 263');
-  }
-  console.log(webSocket);
-  console.log(new Date());
-
-  // Connection opened
-  webSocket.addEventListener("open", function (event) {
-    webSocket.send("Hello Server!");
-  });
-
-  webSocket.addEventListener("error", function (event) {
-    console.log("websocket error");
-  });
-
-  webSocket.addEventListener("close", function (event) {
-    console.log("Bye websocket Server!");
-    console.log(webSocket);
-    console.log(new Date());
-  });
-
-  webSocket.addEventListener("message", function (event) {
-    console.log("Message from server ", event.data);
-    const message = event.data.toString();
-    console.log("sMessage from server ", message);
-    if (message === "pong") {
-      return;
-    }
-    try {
-      const pMessage = JSON.parse(message);
-      if (Array.isArray(pMessage)) {
-        console.log("Safes total: " + pMessage.length);
-        refreshUserData({ broadcast: false });
-      }
-    } catch (err) {
-      console.log("catch 322" + err);
-    }
-  });
-
-  // Chrome, no heart-beat: 1 min timeout
-  webSocketInterval = setInterval(() => {
-    if (webSocket) {
-      webSocket.send("ping");
-    }
-  }, 15000);
-};
-
-*/

@@ -1,163 +1,193 @@
 import * as WWPass from 'wwpass-frontend';
-import {getServerURL} from './utils';
+import {getServerURL, consoleLog} from './utils';
 
-// const passhubPageUrl = 'https://passhub.net/';
 
-const consoleLog = console.log;
-// const consoleLog = () => {};
+let paymentStatus = "not a payment page";
 
-function activatePassHubTab() {
-  //const manifest = chrome.runtime.getManifest();
-  // const urlList = manifest.externally_connectable.matches;
+browser.tabs.query({ active: true, currentWindow: true, })
+.then( tabs => {
+  if(!tabs[0].url.startsWith('https://')) {
+    consoleLog('not https page ' + tabs[0].url);
+    backgroundConnect();
+    return;
+  } 
+  consoleLog(tabs[0]);
 
-  // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
-  browser.tabs.query({ url: [`${getServerURL()}*`] })
-  .then( passHubTabs => {
-    for (const tab of passHubTabs) {
-      if (tab.url.includes('doc')) {
-        continue;
-      }
-      browser.tabs.update(tab.id, { active: true });
-      window.close();
+  browser.tabs.sendMessage(tabs[0].id, {id:'payment status'})
+  .then (response => {
+    consoleLog('xxx');
+    if((response.payment == "payment page")||("not a payment page")) {
+      consoleLog(response);
+      paymentStatus = response.payment;
+      backgroundConnect(); 
       return;
     }
-    window.open(getServerURL(), 'target="_blank"');
-    window.close();
   })
-  .catch(err => {
-    console.log('tabs query error');
-    console.log(err);
-  });
-}
+  .catch (e => {
+    browser.tabs.executeScript(tabs[0].id, { file: 'contentScript.js' })
+    .then(() => {
+      consoleLog('executeScript started');
+    })
+    .catch(err => {  // not a normal page
+      consoleLog('executeScript err');
+      consoleLog(err);
+      backgroundConnect();
+      return;
+    })
+  })
+})
+.catch(err =>{
+  consoleLog('Err');
+  consoleLog(err);
+}) 
 
-function activatePassHubDocTab() {
-  browser.tabs.query({ url: 'https://passhub.net/doc/browser-extension/' }, function (tabs) {
-    for (let tab of tabs) {
-        browser.tabs.update(tab.id, { active: true });
-        return;
+browser.runtime.onMessage.addListener(
+  (request, sender, sendResponse) => {
+    consoleLog('popup');
+    consoleLog(request);
+    consoleLog(sender);
+    if((request.payment == "payment page")||("not a payment page")) {
+      paymentStatus = request.payment;
+      backgroundConnect(); 
     }
-    window.open('https://passhub.net/doc/browser-extension/');
   });
-}
-
-for(let e of document.querySelectorAll('.help-link')) {
-  e.onclick = activatePassHubDocTab;
-}
 
 
-document.querySelector('.close-popup').onclick = function () {
-  window.close();
-};
-
-document.querySelector('.logout-div').onclick = function (){
-  bgConnectionPort.postMessage( { id: 'logout'});
-  window.close();
-}
-
-
-for (const e of document.querySelectorAll('.open-passhub-tab')) {
-  e.onclick = function (){
-    activatePassHubTab();
-  }
-}
-
-
-/*
-document.querySelector('.open-passhub-tab1').onclick = function (){
-  activatePassHubTab();
-}
-
-
-document.querySelector('.open-passhub-tab').onclick = function (){
-  activatePassHubTab();
-}
-*/
-
-document.querySelector('#logo').onclick = function (){
-  activatePassHubTab();
-}
-
-document.querySelector('.contact-us').onclick = function (){
-  window.open('https://passhub.net/feedback19.php','passhub_contact_us');
-}
-
-let bgConnectionPort = browser.runtime.connect({name:"popup"});
+let bgConnectionPort;
+let tabId;
 
 function loginCallback(urlQuery) {
   bgConnectionPort.postMessage( { id: 'loginCallback', urlQuery});
 }
 
-bgConnectionPort.onMessage.addListener( m => {
-  console.log(`popup received message from background script, id ${m.id}`);
-  console.log(m);
-//   console.log(m.id);
+function backgroundConnect() {
+  consoleLog("connecting with bg");
+  bgConnectionPort = browser.runtime.connect({name:"popup"});
 
 
-  if(m.id === "login") {
-    document.querySelector(".login-page").style.display = "block";
-    document.querySelector(".logout-div").style.display = "none";
-    document.querySelector(".lower-tab").style.justifyContent = "center";
-    const ticketURL = `${m.urlBase}getticket.php`;
 
-    WWPass.authInit({
-      qrcode: document.querySelector('#qrcode'),
-      //passkey: document.querySelector('#button--login'),
-      ticketURL,
-      callbackURL: loginCallback,
-    });
-    return;            
-  }
+  bgConnectionPort.onMessage.addListener( m => {
+    consoleLog(`popup received message from background script, id ${m.id}`);
+    consoleLog(m);
+  
+  
+    if(m.id === "login") {
+      document.querySelector(".login-page").style.display = "block";
+      document.querySelector(".logout-div").style.display = "none";
+      document.querySelector(".lower-tab").style.justifyContent = "center";
+      const ticketURL = `${m.urlBase}getticket.php`;
+  
+      WWPass.authInit({
+        qrcode: document.querySelector('#qrcode'),
+        //passkey: document.querySelector('#button--login'),
+        ticketURL,
+        callbackURL: loginCallback,
+      });
+      return;            
+    }
+  
+    if(m.id == "create account") {
+      document.querySelector(".login-page").style.display = "none";
+      document.querySelector("#wait").style.display = "none";
+      document.querySelector(".lower-tab").style.display = "none";
+      document.querySelector(".create-account").style.display = "block";
+      return;
+    }
+  
+    if(m.id === "signed") {
+      document.querySelector(".login-page").style.display = "none";
+      document.querySelector(".logout-div").style.display = "block";
+      document.querySelector(".lower-tab").style.justifyContent = "space-between";
 
-  if(m.id == "create account") {
-    document.querySelector(".login-page").style.display = "none";
-    document.querySelector("#wait").style.display = "none";
-    document.querySelector(".lower-tab").style.display = "none";
-    document.querySelector(".create-account").style.display = "block";
+       browser.tabs.query({active: true, currentWindow: true})
+      .then(tabs => {
+        consoleLog("tabs");
+        consoleLog(tabs);
+        const tab = tabs[0];
+        if(paymentStatus == "payment page") {
+          bgConnectionPort.postMessage({id: "payment page", url: tab.url, tabId: tab.id});
+        }  else {
+          bgConnectionPort.postMessage({id: "advise request", url: tab.url, tabId: tab.id});
+        }
+      })
+      .catch( err => {
+        consoleLog(err)
+      });
+    }
+  
+    if((m.id === "advise")||(m.id === "payment")) {
+      renderAccounts(m);
+      return;
+    }
+ 
+    if((m.id === "signing in..") || (m.id === "getting data..") || (m.id === "decrypting..")) {
+      consoleLog('yy ' + m.id);
+      document.querySelector(".login-page").style.display = "none";
+      document.querySelector("#wait-message").innerText = m.id;
+      document.querySelector("#wait").style.display = "block";
+      return;
+    }
+  });
+
+}
+
+let found = [];
+
+function renderAccounts(m) {
+
+
+  document.querySelector("#wait").style.display = "none";
+  document.querySelector(".login-page").style.display = "none";
+
+  found = m.found;
+
+  consoleLog('renderAccount found: ' + m.found.length);
+
+  if(found.length === 0) {
+    const notFound = document.getElementById('not-found');
+    notFound.style.display = 'block';
+    if(m.id === "payment") {
+      document.getElementById("not-found-password").style.display  = "none";
+      document.getElementById("no-card-records").style.display  = "block";
+    } else {
+      document.getElementById("not-found-password").style.display  = "block";
+      document.getElementById("no-card-records").style.display  = "none";
+      const notFoundHostName = document.getElementById('not-found-hostname');
+      notFoundHostName.innerText = m.url;
+    }
     return;
   }
 
-  if(m.id === "signed") {
-    document.querySelector(".login-page").style.display = "none";
-    document.querySelector(".logout-div").style.display = "block";
-    document.querySelector(".lower-tab").style.justifyContent = "space-between";
-    const queryInfo = {
-      active: true,
-      currentWindow: true,
-    };
-    browser.tabs.query(queryInfo)
-    .then(tabs => {
-      console.log("tabs");
-      console.log(tabs);
-      const tab = tabs[0];
-      tabId = tab.id;
-      bgConnectionPort.postMessage({id: "advise request", url: tab.url, tabId: tab.id});
-    })
-    .catch( err => {
-      console.log(err)
-    });
+  const p = document.querySelector('#advise');
+  consoleLog('renderAccount in advise');
+  try {
+    for (let i = 0; i < found.length; i++) {
+      consoleLog('rendering ' + i +1);
+      const d = document.createElement('div');
+      d.setAttribute('data-row', `${i}`);
+      d.setAttribute('class', 'found-entry');
+      d.onclick = advItemClick;
+  
+      const titleDiv = document.createElement('div');
+      titleDiv.setAttribute('class', 'found-title');
+      titleDiv.innerText = found[i].title;
+      d.appendChild(titleDiv);
+  
+      const safeDiv = document.createElement('div');
+      safeDiv.setAttribute('class', 'found-safe');
+      safeDiv.innerText = found[i].safe;
+      d.appendChild(safeDiv);
+  
+      p.appendChild(d);
+    }
+  
+  } catch (e) {
+    consoleLog('catch 193');
+    consoleLog(e);
   }
-
-  if(m.id === "advise") {
-    renderAccounts(m);
-    return;
-  }
-
-  if((m.id === "signing in..") || (m.id === "getting data..") || (m.id === "decrypting..")) {
-    console.log('yy ' + m.id);
-    document.querySelector(".login-page").style.display = "none";
-    document.querySelector("#wait-message").innerText = m.id;
-    document.querySelector("#wait").style.display = "block";
-    return;
-  }
-});
-
-
-let tabId;
-
-const queryInfo = {
-  active: true,
-  currentWindow: true,
-};
+  p.style.display = 'block';
+  consoleLog('renderAccount advise rendered');
+}
 
 
 function advItemClick(e) {
@@ -168,9 +198,27 @@ function advItemClick(e) {
   const row = parseInt(this.getAttribute('data-row'));
   consoleLog(row);
 
-  browser.tabs.query(queryInfo)
+  browser.tabs.query({active: true, currentWindow: true})
   .then( tabs => {
     tabId = tabs[0].id;
+    if(paymentStatus == "payment page") {
+      browser.tabs.sendMessage(
+        tabs[0].id,
+        {
+          id: 'card',
+          card: found[row]. card,
+        })
+        .then (response => {
+          consoleLog(response.farewell);
+          window.close();
+        })
+        .catch(err => {
+          consoleLog('catched 216');
+          consoleLog(err);
+        })
+      return;
+    }
+
     browser.tabs.sendMessage(
       tabs[0].id,
       {
@@ -206,129 +254,60 @@ function advItemClick(e) {
   });
 }
 
-browser.runtime.onMessage.addListener(
-  (request, sender, sendResponse) => {
-    consoleLog("popup got message");
-    consoleLog(request);
-  });
-
-
-let found = [];
-
-function renderAccounts(m) {
-
-  document.querySelector("#wait").style.display = "none";
-  document.querySelector(".login-page").style.display = "none";
-
-  found = m.found;
-  if(found.length === 0) {
-    const notFound = document.getElementById('not-found');
-    notFound.style.display = 'block';
-    const notFoundHostName = document.getElementById('not-found-hostname');
-    notFoundHostName.innerText = m.url;
-    return;
-  }
-
-  const p = document.querySelector('#advise');
-  
-  for (let i = 0; i < found.length; i++) {
-    const d = document.createElement('div');
-    d.setAttribute('data-row', `${i}`);
-    d.setAttribute('class', 'found-entry');
-    d.onclick = advItemClick;
-
-    const titleDiv = document.createElement('div');
-    titleDiv.setAttribute('class', 'found-title');
-    titleDiv.innerText = found[i].title;
-    d.appendChild(titleDiv);
-
-    const safeDiv = document.createElement('div');
-    safeDiv.setAttribute('class', 'found-safe');
-    safeDiv.innerText = found[i].safe;
-    d.appendChild(safeDiv);
-
-    p.appendChild(d);
-  }
-  p.style.display = 'block';
-}
 
 
 
-/*
-function contentScriptCb(result) {
-  const lastErr = browser.runtime.lastError;
-  if (lastErr) {
-    consoleLog(' lastError: ' + JSON.stringify(lastErr));
-  }
-}
+function activatePassHubTab() {
+  //const manifest = chrome.runtime.getManifest();
+  // const urlList = manifest.externally_connectable.matches;
 
+  // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
+    browser.tabs.query({ url: `${getServerURL()}*`, currentWindow: true })
+  .then( tabs => {
 
-
-browser.tabs.query(queryInfo)
-  .then(
-    tabs => {
-      const tab = tabs[0];
-      tabId = tab.id;
-      
+    for(const tab of tabs ) {
+      if (tab.url.includes('doc')) {
+        continue;
+      }
+      browser.tabs.update(tab.id, { active: true });
+      window.close();
+      return;
     }
-  )
-  .catch(
-    e => consoleLog("tabs query error " + e)
-  );
-
-
-
-
-function backgroundReply(reply) {
-  consoleLog("popup got reply")
-  consoleLog(reply);
-  if(reply.id === "login") {
-    document.querySelector(".login-page").style.display = "block";
-    document.querySelector(".logout-div").style.display = "none";
-    document.querySelector(".lower-tab").style.justifyContent = "center";
-
-    const ticketURL = `${reply.urlBase}getticket.php`;
-
-    WWPass.authInit({
-      qrcode: document.querySelector('#qrcode'),
-      //passkey: document.querySelector('#button--login'),
-      ticketURL,
-      callbackURL: loginCallback,
-    });
-    return;            
-  } 
-  if(reply.id === "authenticating") {
-    document.querySelector(".login-page").style.display = "none";
-    document.querySelector("#wait").style.display = "block";
-    return;
-  }
-  
-  if(reply.id === "advise") {
-    found = reply.advise;
-    renderAccounts(found);
-  }
-  return;
-}
-
-
-
-function openPasshubWindow() {
-  bgConnectionPort.postMessage( { id: 'openPasshubWindow'});
-}
- document.querySelector(".help").onclick  = openPasshubWindow;
-
-function loginCallback1(urlQuery) {
-  
-  consoleLog("loginCallback urlQuery");
-  consoleLog(urlQuery);
-
-  browser.runtime.sendMessage( { id: 'loginCallback', urlQuery})
-  .then( reply => {
-    consoleLog("loginCallback reply");
-    consoleLog(reply);
+    window.open(getServerURL(), 'target="_blank"');
+    window.close();
   })
+  .catch(err => {
+    consoleLog('tabs query error');
+    consoleLog(err);
+  });
 }
 
+function activatePassHubDocTab() {
+  browser.tabs.query({ url: 'https://passhub.net/doc/browser-extension#firefox', currentWindow: true }, function (tabs) {
+    for (let tab of tabs) {
+        browser.tabs.update(tab.id, { active: true });
+        return;
+    }
+    window.open('https://passhub.net/doc/browser-extension#firefox');
+  });
+}
 
+for(let e of document.querySelectorAll('.help-link')) {
+  e.onclick = activatePassHubDocTab;
+}
 
-*/
+document.querySelector('.close-popup').onclick = () => window.close();
+
+document.querySelector('.logout-div').onclick = function (){
+  bgConnectionPort.postMessage( { id: 'logout'});
+  window.close();
+}
+
+for (const e of document.querySelectorAll('.open-passhub-tab')) {
+  e.onclick = activatePassHubTab;
+}
+
+document.querySelector('.contact-us').onclick = function (){
+  window.open('https://passhub.net/feedback19.php','passhub_contact_us');
+}
+
