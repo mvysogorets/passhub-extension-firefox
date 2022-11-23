@@ -1,60 +1,233 @@
 import * as WWPass from 'wwpass-frontend';
-import {getServerURL, consoleLog} from './utils';
+import {getHostname, consoleLog} from './utils';
 
+let serverName = "passhub.net";
 
 let paymentStatus = "not a payment page";
 
-browser.tabs.query({ active: true, currentWindow: true, })
-.then( tabs => {
-  if(!tabs[0].url.startsWith('https://')) {
-    consoleLog('not https page ' + tabs[0].url);
+let activeTab = null;
+
+let validFrames = []
+let sameUrlFrames = [];
+let paymentFrames = [];
+
+let frameResponded = 0;
+let paymentHost = null;
+
+function validFramesRemove(frame) {
+  validFrames = validFrames.filter(e => e !== frame);
+  consoleLog(`Removed from validFrames ${frame.url}`);
+}
+
+function gotPaymentStatus(tab, frame, response) {
+  
+  consoleLog('gotPaymentStatus');
+  consoleLog(`frameResponded ${frameResponded + 1} out of ${validFrames.length}`);
+  consoleLog(response);
+
+  if(response.payment == "payment page") {
+    paymentStatus = response.payment;
+    paymentFrames.push(frame);
+  }
+
+  if(response.payment == "not valid frame") {
+    paymentFrames.push(frame);
+    validFramesRemove(frame);
+
+  } else {
+    frameResponded++;    
+  }
+
+
+  if(frameResponded == validFrames.length) {
+
+    consoleLog('all frames responded');
+    consoleLog('validFrames');
+    consoleLog(validFrames);
+    consoleLog('sameUrlFrames');
+    consoleLog(sameUrlFrames);
+    consoleLog('paymentFrames');
+    consoleLog(paymentFrames);
+
+    if(paymentFrames.length) {
+      const paymentUrl = new URL(paymentFrames[0].url);
+      paymentHost = paymentUrl.host;
+      consoleLog(`paymentHost1 ${paymentHost}`)
+
+      for(let payFrame of paymentFrames) {
+        const url = new URL(payFrame.url);
+        const host = url.host;
+        if(host != paymentHost) {
+          paymentHost = null;
+          paymentStatus = "not a payment page";
+          break;
+        }
+      }
+      consoleLog(`paymentHost ${paymentHost}`)
+    }
     backgroundConnect();
+  }
+}
+
+function paymentPlatform() {
+  if(paymentHost) {
+    let mainURL = new URL(activeTab.url);
+    let mHost = mainURL.host;
+
+    let parts = mainURL.host.split('.');
+
+    if(parts.length > 1) {
+      mHost =  parts.slice(parts.length-2).join('.');
+    }
+    parts = paymentHost.split('.');
+
+    let pHost = paymentHost;
+
+    if(parts.length > 1) {
+      pHost =  parts.slice(parts.length-2).join('.')
+    }
+    consoleLog(`paymentPlatform pHost ${pHost} mHost ${mHost}`)
+    if(pHost != mHost) {
+      consoleLog(`paymentPlatform returns ${paymentHost}`)
+
+      return paymentHost;
+    }
+  }
+  return null;
+}
+
+function notRegularPage(url)  {
+  consoleLog('not a regular page');  
+
+/* !!!!!!!!!!!!!!!!!!! */
+
+  backgroundConnect();
+/*  
+  document.getElementById('not-a-regular-page').style.display='block';
+  document.getElementById('not-a-regular-page-url').innerText = url;   
+*/  
+}
+
+function installScript(tab, frame) {
+
+  consoleLog('tab');
+  consoleLog(tab);
+  consoleLog('frame');
+  consoleLog(frame);
+
+  browser.tabs.sendMessage(tab.id, {id:'payment status'}, {frameId: frame.frameId})
+  .then( response => {
+
+    consoleLog('response');
+    consoleLog(response);
+
+    gotPaymentStatus(tab, frame, response);
+  })
+  .catch( err =>{
+    consoleLog('catch69');
+    consoleLog(err);
+    consoleLog('frame');
+    consoleLog(frame);
+
+    browser.tabs.executeScript(
+      tab.id,
+        {file: 'contentScript.js', frameId: frame.frameId }
+      )
+      .then( injectionResult => {
+        console.log('injectionResult');
+        console.log(injectionResult);
+
+        browser.tabs.sendMessage(tab.id,  {id:'payment status'}, {frameId: frame.frameId})
+        .then( response =>  {
+
+          consoleLog('popup got response from content script');
+          consoleLog(response);
+
+          gotPaymentStatus(tab, frame, response);
+        })
+        .catch(err => {
+          consoleLog('catch 70');
+          consoleLog(err);
+          gotPaymentStatus(tab, frame, {payment: "not valid frame"});
+
+        })
+      })
+      .catch( err => {
+        if(frame.frameId == 0) {
+          notRegularPage(activeTab.url);
+        } 
+        gotPaymentStatus(tab, frame, {payment: "not valid frame"});
+
+        consoleLog('catch 76');
+
+        consoleLog(err);
+        console.log(frame);
+      })
+  })
+}
+
+browser.tabs.query({ active: true, currentWindow: true, })
+.then(tabs => {
+  activeTab = tabs[0];
+
+  consoleLog('activeTab');  
+  consoleLog(activeTab);
+  
+  let mainURL = new URL(activeTab.url);
+
+  consoleLog('mainURL');
+  consoleLog(mainURL);
+
+  if((mainURL.host == "") || (mainURL.protocol != "https:")) {
+    notRegularPage(activeTab.url);
     return;
-  } 
-  consoleLog(tabs[0]);
+  }
 
-  browser.tabs.sendMessage(tabs[0].id, {id:'payment status'})
-  .then (response => {
-    consoleLog('xxx');
-    if((response.payment == "payment page")||("not a payment page")) {
-      consoleLog(response);
-      paymentStatus = response.payment;
-      backgroundConnect(); 
+  browser.webNavigation.getAllFrames( {tabId: activeTab.id} )
+  .then(frameList => {
+    consoleLog(`frameList with ${frameList.length} frames`);
+    for(let frame of frameList) {
+      console.log(frame);
+      let frameURL = new URL(frame.url);
+      consoleLog(`frameURL ${frame.url}`);
+      consoleLog(frameURL);
+
+      if((frameURL.host !== "") || (frameURL.protocol == "https:")) {
+        validFrames.push(frame);
+        if(frameURL.host == mainURL.host) {
+          sameUrlFrames.push(frame);
+        }
+      }
+    }
+
+    consoleLog('sameUrlFrames');
+    consoleLog(sameUrlFrames);
+
+    if(sameUrlFrames.length == 0) {
+      notRegularPage(activeTab.url);
       return;
     }
-  })
-  .catch (e => {
-    browser.tabs.executeScript(tabs[0].id, { file: 'contentScript.js' })
-    .then(() => {
-      consoleLog('executeScript started');
-    })
-    .catch(err => {  // not a normal page
-      consoleLog('executeScript err');
-      consoleLog(err);
-      backgroundConnect();
-      return;
-    })
-  })
-})
-.catch(err =>{
-  consoleLog('Err');
-  consoleLog(err);
-}) 
 
-browser.runtime.onMessage.addListener(
-  (request, sender, sendResponse) => {
-    consoleLog('popup');
-    consoleLog(request);
-    consoleLog(sender);
-    if((request.payment == "payment page")||("not a payment page")) {
-      paymentStatus = request.payment;
-      backgroundConnect(); 
+    consoleLog('Sending message "payment status"');
+
+    // for(let frame of sameUrlFrames) {
+    for(let frame of validFrames) {
+      consoleLog('for frames');
+      consoleLog(frame);
+      installScript(activeTab, frame)
     }
-  });
+  })
+  .catch(err => {
+    consoleLog('catch 105');
+    consoleLog(err);
+
+  })
+});  
 
 
 let bgConnectionPort;
-let tabId;
+
+//let tabId;
 
 function loginCallback(urlQuery) {
   bgConnectionPort.postMessage( { id: 'loginCallback', urlQuery});
@@ -76,7 +249,14 @@ function backgroundConnect() {
       document.querySelector(".logout-div").style.display = "none";
       document.querySelector(".lower-tab").style.justifyContent = "center";
       const ticketURL = `${m.urlBase}getticket.php`;
-  
+
+      document.querySelector("#server-name").innerText = m.serverName;
+      document.querySelector("#logo").title=`Open page ${m.serverName}`;
+      serverName = m.serverName; 
+
+
+      document.querySelector("#wait").style.display = "none";
+
       WWPass.authInit({
         qrcode: document.querySelector('#qrcode'),
         //passkey: document.querySelector('#button--login'),
@@ -116,6 +296,13 @@ function backgroundConnect() {
     }
   
     if((m.id === "advise")||(m.id === "payment")) {
+
+      if(m.serverName) {
+        document.querySelector("#server-name").innerText = m.serverName;
+        document.querySelector("#logo").title=`Open page ${m.serverName}`;
+        serverName = m.serverName; 
+      }
+
       renderAccounts(m);
       return;
     }
@@ -135,9 +322,22 @@ let found = [];
 
 function renderAccounts(m) {
 
-
   document.querySelector("#wait").style.display = "none";
   document.querySelector(".login-page").style.display = "none";
+
+  if(paymentHost) {
+    let platform = paymentPlatform();
+    consoleLog(`platform ${platform}`)
+    if(platform) {
+      consoleLog(`platform1 ${platform}`);
+
+      document.getElementById('paygate').style.display='block';
+      document.getElementById('paygate-url').innerText=platform;
+
+
+
+    }
+  }
 
   found = m.found;
 
@@ -157,6 +357,7 @@ function renderAccounts(m) {
     }
     return;
   }
+
 
   const p = document.querySelector('#advise');
   consoleLog('renderAccount in advise');
@@ -191,38 +392,53 @@ function renderAccounts(m) {
 
 
 function advItemClick(e) {
+  consoleLog('adwItem this');
   consoleLog(this);
   consoleLog('----');
   consoleLog(e);
   consoleLog('----');
   const row = parseInt(this.getAttribute('data-row'));
-  consoleLog(row);
+  consoleLog(`clicked ${row} row`);
 
   browser.tabs.query({active: true, currentWindow: true})
   .then( tabs => {
-    tabId = tabs[0].id;
+    let tabId = tabs[0].id;
     if(paymentStatus == "payment page") {
-      browser.tabs.sendMessage(
-        tabs[0].id,
-        {
-          id: 'card',
-          card: found[row]. card,
-        })
-        .then (response => {
-          consoleLog(response.farewell);
-          window.close();
-        })
-        .catch(err => {
-          consoleLog('catched 216');
-          consoleLog(err);
-        })
-      return;
+      consoleLog(`paymentHost ${paymentHost}`)
+      if(paymentHost) {
+        consoleLog('paymentFrames');
+        consoleLog(paymentFrames);
+
+        for(let frame of paymentFrames ) {
+          consoleLog('frame');
+          consoleLog(frame);
+
+          consoleLog(`sending card data to frameid ${frame.frameId}`)
+          browser.tabs.sendMessage(
+            tabs[0].id,
+            {
+              id: 'card',
+              card: found[row]. card,
+            },
+            {frameId: frame.frameId})
+            .then (response => {
+              consoleLog('response');
+              consoleLog(response);
+              window.close();
+            })
+            .catch(err => {
+              consoleLog('catched 216');
+              consoleLog(err);
+            })
+        }
+        return;
+      }
     }
 
     browser.tabs.sendMessage(
       tabs[0].id,
       {
-        greeting: 'loginRequest',
+        id: 'loginRequest',
         username: found[row].username,
         password: found[row].password,
       })
@@ -254,15 +470,13 @@ function advItemClick(e) {
   });
 }
 
-
-
-
 function activatePassHubTab() {
+
   //const manifest = chrome.runtime.getManifest();
   // const urlList = manifest.externally_connectable.matches;
-
   // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
-    browser.tabs.query({ url: `${getServerURL()}*`, currentWindow: true })
+
+  browser.tabs.query({ url: `https://${getHostname()}/*`, currentWindow: true })
   .then( tabs => {
 
     for(const tab of tabs ) {
@@ -273,7 +487,7 @@ function activatePassHubTab() {
       window.close();
       return;
     }
-    window.open(getServerURL(), 'target="_blank"');
+    window.open(`https://${serverName}`, 'target="_blank"');
     window.close();
   })
   .catch(err => {
@@ -311,3 +525,47 @@ document.querySelector('.contact-us').onclick = function (){
   window.open('https://passhub.net/feedback19.php','passhub_contact_us');
 }
 
+
+
+
+
+
+/*
+browser.tabs.query({ active: true, currentWindow: true, })
+.then( tabs => {
+  if(!tabs[0].url.startsWith('https://')) {
+    consoleLog('not https page ' + tabs[0].url);
+    backgroundConnect();
+    return;
+  } 
+  consoleLog(tabs[0]);
+
+  browser.tabs.sendMessage(tabs[0].id, {id:'payment status'})
+  .then (response => {
+    consoleLog('xxx');
+    if((response.payment == "payment page")||("not a payment page")) {
+      consoleLog(response);
+      paymentStatus = response.payment;
+      backgroundConnect(); 
+      return;
+    }
+  })
+  .catch (e => {
+    browser.tabs.executeScript(tabs[0].id, { file: 'contentScript.js' })
+    .then(() => {
+      consoleLog('executeScript started');
+    })
+    .catch(err => {  // not a normal page
+      consoleLog('executeScript err');
+      consoleLog(err);
+      backgroundConnect();
+      return;
+    })
+  })
+})
+.catch(err =>{
+  consoleLog('Err');
+  consoleLog(err);
+}) 
+
+*/

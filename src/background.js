@@ -1,13 +1,18 @@
 import axios from "axios";
 import * as passhubCrypto from "./crypto";
 import WsConnection from "./wsConnection";
-import {getApiURL, getWsURL, consoleLog} from './utils';
-
-consoleLog("background started");
+import {getApiURL, getWsURL, setHostname, getHostname, consoleLog} from './utils';
 
 let state = "login";
 let theSafes = [];
 let csrfToken = '';
+let popupConnected = false;
+let popupConnectionPort;
+let wsConnection = null;
+
+
+consoleLog("background started");
+
 
 const wsMessageInd = (message) => {
   try {
@@ -21,21 +26,67 @@ const wsMessageInd = (message) => {
   }
 }
 
-const wsConnection = new WsConnection(getWsURL(), wsMessageInd);
+
+function initServerUrl() {
+  consoleLog('initServerURL');
+  let currentServer = {passhubHost:"passhub.net"};
+
+  browser.storage.local.get("passhubHost")
+  .then(data => {
+    consoleLog("bg get storage");
+    consoleLog(data);
+    if(!data || !data.passhubHost ||(data.passhubHost == '')) {
+      currentServer = {passhubHost:"passhub.net"};
+    } else {
+      currentServer = data;
+    }
+    setHostname(currentServer.passhubHost);
+    if(wsConnection) {
+      consoleLog('wsConnection');
+      consoleLog(wsConnection);
+      wsConnection.close();
+      wsConnection = null;
+    }
+    state = "login";
+  })
+
+  .catch(err =>{
+    consoleLog('catch 19');
+    consoleLog(err);
+    setHostname("passhub.net");
+  });
+}
+
+initServerUrl();
+
+function logStorageChange(changes, area) {
+  consoleLog(`Change in storage area: ${area}`);
+
+  const changedItems = Object.keys(changes);
+
+  for (const item of changedItems) {
+    consoleLog(`${item} has changed:`);
+    consoleLog("Old value: ", changes[item].oldValue);
+    consoleLog("New value: ", changes[item].newValue);
+  }
+  state = "login";
+  initServerUrl()
+  // setHistname(changes['passhubHost'].newValue);
+}
+
+browser.storage.onChanged.addListener(logStorageChange)
+
 
 function setCsrfToken(t) {
   csrfToken = t;
   //window.localStorage.setItem('csrf', t);
-  console.log('csrfToken');
-  console.log(csrfToken);
+  consoleLog('csrfToken');
+  consoleLog(csrfToken);
 }
 
 function getVerifier() {
     return csrfToken;
 }
-
-let popupConnected = false;
-let popupConnectionPort;
 
 function notifyPopup(m) {
   if(popupConnected) {
@@ -45,6 +96,7 @@ function notifyPopup(m) {
 
 browser.runtime.onConnect.addListener(port =>  {
   popupConnectionPort = port;
+
   popupConnectionPort.onDisconnect.addListener(port =>  {
     consoleLog('background: popup disconnected');
     consoleLog(port);
@@ -81,6 +133,12 @@ browser.runtime.onConnect.addListener(port =>  {
           setCsrfToken(reply.headers["x-csrf-token"]);
           state = "getting data..";
           popupConnectionPort.postMessage({id: state});
+          if(wsConnection) {
+            wsConnecttion.close();
+            wsConnection = null;
+          }
+          wsConnection = new WsConnection(getWsURL(), wsMessageInd);
+      
           downloadUserData();
         }
       })
@@ -106,7 +164,7 @@ browser.runtime.onConnect.addListener(port =>  {
         } else {
           consoleLog('bg advise: nothing found')
         }
-        popupConnectionPort.postMessage({id: 'advise', found: foundRecords, url: hostname});
+        popupConnectionPort.postMessage({id: 'advise', found: foundRecords, url: hostname,  serverName: getHostname()});
         return;
       }
     }
@@ -115,7 +173,7 @@ browser.runtime.onConnect.addListener(port =>  {
       if(state === "signed") {
         const cards=paymentCards();
         consoleLog(cards);
-        popupConnectionPort.postMessage({id: 'payment', found: cards});
+        popupConnectionPort.postMessage({id: 'payment', found: cards,  serverName: getHostname()});
         return;
       }
     }
@@ -156,7 +214,7 @@ browser.runtime.onConnect.addListener(port =>  {
     }
 */
   });
-  popupConnectionPort.postMessage({id: state, urlBase: getApiURL()})
+  popupConnectionPort.postMessage({id: state, urlBase: getApiURL(), serverName: getHostname()})
 }); 
 
 
@@ -316,7 +374,6 @@ const refreshUserData = ({ safes = []} = {}) => {
           normalizeSafes(data.safes);
           theSafes = data.safes;
         });
-        return;
       }
       /*
       if (result.data.status === "login") {
@@ -400,8 +457,8 @@ function advise(url) {
               });
             }
           } catch (err) {
-            console.log('catch 392');
-            // console.log(err); 
+            consoleLog('catch 392');
+            // consoleLog(err); 
           }
         }
       }
@@ -410,6 +467,9 @@ function advise(url) {
   return result;
 };
 
+
+
+/* probably we do not need it
 
 browser.runtime.onMessage.addListener(
   (request, sender, sendResponse) => {
@@ -448,3 +508,5 @@ browser.runtime.onMessage.addListener(
     }
   }
 )
+
+*/

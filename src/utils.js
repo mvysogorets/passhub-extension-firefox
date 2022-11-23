@@ -1,23 +1,29 @@
-const serverURL = 'passhub.net';
+const consoleLog = console.log;
+// const consoleLog = () => {};
+
+let hostname = 'passhub.net';
 
 function getApiURL() {
-  return `https://ext.${serverURL}/`;
+  return `https://ext.${hostname}/`;
 }
 
 function getWsURL() {
-  return `wss://ext.${serverURL}/wsapp/`;
+  return `wss://ext.${hostname}/wsapp/`;
 }
 
-function getServerURL() {
-  return `https://${serverURL}/`;
+function setHostname(newName) {
+  consoleLog(`setHostname ${newName}`)
+  hostname = newName;
 }
 
-const consoleLog = console.log;
-// const consoleLog = () => {};
+function getHostname() {
+  return hostname;
+}
 
 export {
   getApiURL,
   getWsURL,
-  getServerURL,
+  setHostname,
+  getHostname,
   consoleLog
 }

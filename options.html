@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body style="margin:0; padding:0; font-family: sans-serif;">
+  <div  style="padding: 2em 3em 3em 3em; background-color: #f4f4f4; border-radius:5px; font-size: 16px;">
+    <div  style="margin-bottom: 0.5em">Current server</div>
+    <div id="current-server" style="font-size:22px; font-weight:700; margin-bottom:1.5em"></div>
+    <div>
+      <form>
+        <div style="margin-bottom: 0.5em"><label for="url" >new server URL:</label></div>
+        <div style="font-size:16px">
+          <input type='text' id="url" placeholder="https://passhub.net" size="40" style='margin:0 0.7em 0 0; padding:6px'>
+          <input type="submit" value="Change" 
+          style="color: white;background-color: rgb(4, 170, 109); border-radius: 5px; padding: 6px 18px;"> 
+        </div>
+        <div id='error-message' style="color:red"></div>
+      </form> 
+    </div>
+  </div>
+  <script src="options.js"></script>
+
+</body>
+</html>
