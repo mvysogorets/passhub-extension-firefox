@@ -16,13 +16,15 @@ let paymentHost = null;
 
 function validFramesRemove(frame) {
   validFrames = validFrames.filter(e => e !== frame);
-  consoleLog(`Removed from validFrames ${frame.url}`);
+  consoleLog(`Removed frfme from validFrames ${frame.url}`);
 }
 
 function gotPaymentStatus(tab, frame, response) {
   
-  consoleLog('gotPaymentStatus');
+  consoleLog(`gotPaymentStatus from frame ${frame.frameId}`);
+
   consoleLog(`frameResponded ${frameResponded + 1} out of ${validFrames.length}`);
+
   consoleLog(response);
 
   if(response.payment == "payment page") {
@@ -31,9 +33,7 @@ function gotPaymentStatus(tab, frame, response) {
   }
 
   if(response.payment == "not valid frame") {
-    paymentFrames.push(frame);
     validFramesRemove(frame);
-
   } else {
     frameResponded++;    
   }
@@ -109,59 +109,50 @@ function notRegularPage(url)  {
 }
 
 function installScript(tab, frame) {
-
-  consoleLog('tab');
-  consoleLog(tab);
-  consoleLog('frame');
-  consoleLog(frame);
+  consoleLog(`installScript for frame ${frame.frameId} ${frame.url}`);
 
   browser.tabs.sendMessage(tab.id, {id:'payment status'}, {frameId: frame.frameId})
   .then( response => {
 
-    consoleLog('response');
+    consoleLog(`response from frame ${frame.frameId}`);
     consoleLog(response);
 
     gotPaymentStatus(tab, frame, response);
   })
   .catch( err =>{
-    consoleLog('catch69');
+    consoleLog(`catch69 frame: ${frame.frameId}`);
     consoleLog(err);
-    consoleLog('frame');
-    consoleLog(frame);
+//    consoleLog(frame);
 
     browser.tabs.executeScript(
       tab.id,
         {file: 'contentScript.js', frameId: frame.frameId }
       )
       .then( injectionResult => {
-        console.log('injectionResult');
-        console.log(injectionResult);
+        consoleLog('injectionResult');
+        consoleLog(injectionResult);
 
         browser.tabs.sendMessage(tab.id,  {id:'payment status'}, {frameId: frame.frameId})
         .then( response =>  {
-
-          consoleLog('popup got response from content script');
+          consoleLog(`response from frame ${frame.frameId} after executeScript/sendMessage`);
           consoleLog(response);
 
           gotPaymentStatus(tab, frame, response);
         })
         .catch(err => {
-          consoleLog('catch 70');
+          consoleLog(`catch70 frame: ${frame.frameId} ${frame.url}`);
           consoleLog(err);
           gotPaymentStatus(tab, frame, {payment: "not valid frame"});
-
         })
       })
       .catch( err => {
+        consoleLog(`catch71 frame: ${frame.frameId} ${frame.url}`);
+        consoleLog(err);
+
         if(frame.frameId == 0) {
           notRegularPage(activeTab.url);
         } 
         gotPaymentStatus(tab, frame, {payment: "not valid frame"});
-
-        consoleLog('catch 76');
-
-        consoleLog(err);
-        console.log(frame);
       })
   })
 }
@@ -185,14 +176,15 @@ browser.tabs.query({ active: true, currentWindow: true, })
 
   browser.webNavigation.getAllFrames( {tabId: activeTab.id} )
   .then(frameList => {
-    consoleLog(`frameList with ${frameList.length} frames`);
-    for(let frame of frameList) {
-      console.log(frame);
-      let frameURL = new URL(frame.url);
-      consoleLog(`frameURL ${frame.url}`);
-      consoleLog(frameURL);
 
-      if((frameURL.host !== "") || (frameURL.protocol == "https:")) {
+    consoleLog(`frameList with ${frameList.length} frames`);
+
+    for(let frame of frameList) {
+      consoleLog(`${frame.frameId} ${frame.url}`)
+      let frameURL = new URL(frame.url);
+
+//      if((frameURL.host !== "") || (frameURL.protocol == "https:")) {
+      if(true) {
         validFrames.push(frame);
         if(frameURL.host == mainURL.host) {
           sameUrlFrames.push(frame);
@@ -212,8 +204,6 @@ browser.tabs.query({ active: true, currentWindow: true, })
 
     // for(let frame of sameUrlFrames) {
     for(let frame of validFrames) {
-      consoleLog('for frames');
-      consoleLog(frame);
       installScript(activeTab, frame)
     }
   })

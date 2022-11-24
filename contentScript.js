@@ -1,7 +1,7 @@
 // GPL: https://github.com/passff/passff
 
-const consoleLog = console.log;
-// const consoleLog = () => {};
+// const consoleLog = console.log;
+const consoleLog = () => {};
 
 
 consoleLog('content script start');
