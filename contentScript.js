@@ -70,27 +70,27 @@ function fillCredentials(loginData = null) {
   consoleLog(`fillCounter ${fillCounter}`);
 
 
-  for (i of inputs) {
-    if (i.offsetParent === null) {
+  for(let input of inputs) {
+    if (input.offsetParent === null) {
       continue;
     }
-    if (i.disabled === true) {
+    if (input.disabled === true) {
       continue;
     }
-    if (window.getComputedStyle(i).visibility == 'hidden') {
+    if (window.getComputedStyle(input).visibility == 'hidden') {
       continue;
     }
 
-    const itype = i.type.toLowerCase();
+    const itype = input.type.toLowerCase();
     if (itype === 'text' && passwordInput == null) {
-      if (isUsernameCandidate(i)) usernameInput = i;
+      if (isUsernameCandidate(input)) usernameInput = input;
     }
     if (itype === 'email' && passwordInput == null) {
-      usernameInput = i;
+      usernameInput = input;
     }
 
     if (itype === 'password') {
-      passwordInput = i;
+      passwordInput = input;
     }
 
     if (usernameInput && passwordInput) {

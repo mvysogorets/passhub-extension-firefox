@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "version": "0.4",
+  "version": "0.6",
   "name": "passhub.net",
   "description": "username/password and bank card data automatic form filler",
   "icons": {

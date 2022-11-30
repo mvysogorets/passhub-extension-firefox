@@ -164,7 +164,7 @@ browser.runtime.onConnect.addListener(port =>  {
         } else {
           consoleLog('bg advise: nothing found')
         }
-        popupConnectionPort.postMessage({id: 'advise', found: foundRecords, url: hostname,  serverName: getHostname()});
+        popupConnectionPort.postMessage({id: 'advise', found: foundRecords, hostname,  serverName: getHostname()});
         return;
       }
     }

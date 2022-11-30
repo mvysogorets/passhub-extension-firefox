@@ -2,8 +2,9 @@ import * as WWPass from 'wwpass-frontend';
 
 import forge from 'node-forge';
 
-function serverLog() {}
+import {consoleLog} from './utils';
 
+function serverLog() {}
 
 let WebCryptoPrivateKey = null;
 let ForgePrivateKey = null;
@@ -19,7 +20,6 @@ const str2uint8 = (str) => {
   }
   return bytes.buffer;
 };
-
 
 const b64ToAb = (base64) => {
   const s = atob(base64);
@@ -55,19 +55,18 @@ const pem2CryptoKey = (pem) => {
     ['decrypt'],
   )
     .then((key) => {
-      // console.log('exiting pem2cryptokey');
+      // consoleLog('exiting pem2cryptokey');
       WebCryptoPrivateKey = key;
       return key;
     });
 };
-
 
 function getPrivateKey(data) {
   publicKeyPem = data.publicKeyPem;
   return WWPass.cryptoPromise
     .getWWPassCrypto(data.ticket, "AES-CBC")
     .then((thePromise) => {
-      // console.log('after getWWPassCrypto');
+      // consoleLog('after getWWPassCrypto');
       const iv = new Uint8Array([176, 178, 97, 142, 156, 31, 45, 30, 81, 210, 85, 14, 202, 203, 86, 240]);
       return getSubtle().decrypt(
         {
@@ -78,7 +77,7 @@ function getPrivateKey(data) {
         b64ToAb(data.ePrivateKey)
       ).then( (ab) => {
         const pem = ab2str(ab);
-        // console.log(pem)
+        // consoleLog(pem)
         return pem2CryptoKey(pem).catch(() => { // try old keys, generated in forge
           serverLog('forge privateKey');
           ForgePrivateKey = forge.pki.privateKeyFromPem(pem);
@@ -87,15 +86,13 @@ function getPrivateKey(data) {
 
       });
     });
-
 }
-
 
 function getPrivateKeyOld(ePrivateKey, ticket) {
 
   return WWPass.cryptoPromise.getWWPassCrypto(ticket, 'AES-CBC')
   .then((thePromise) => {
-    // console.log('after getWWPassCrypto');
+    // consoleLog('after getWWPassCrypto');
     const iv = new Uint8Array([176, 178, 97, 142, 156, 31, 45, 30, 81, 210, 85, 14, 202, 203, 86, 240]);
     return getSubtle().decrypt(
       {
@@ -119,40 +116,40 @@ function getPrivateKeyOld(ePrivateKey, ticket) {
       })
       .catch((error) => {
         // TODO: pop it up
-        console.log('error88:')
-        console.log(error);
+        consoleLog('error88:')
+        consoleLog(error);
       });
   });
 }
 
-  const forgeDecryptAesKey = async (eKeyH) => {
-    const eKey = forge.util.hexToBytes(eKeyH);
-    return ForgePrivateKey.decrypt(eKey, 'RSA-OAEP');
-  };
+const forgeDecryptAesKey = async (eKeyH) => {
+  const eKey = forge.util.hexToBytes(eKeyH);
+  return ForgePrivateKey.decrypt(eKey, 'RSA-OAEP');
+};
   
-  const decryptAesKey = (eKey) => {
-    if (ForgePrivateKey) {
-      return forgeDecryptAesKey(eKey);
-    }
-    const u8Key = str2uint8(forge.util.hexToBytes(eKey));
-    return getSubtle().decrypt(
-      {
-        name: 'RSA-OAEP',
-        hash: { name: 'SHA-1' }, // Edge!
-      },
-      WebCryptoPrivateKey,
-      u8Key
-    ).then(abKey => uint82str(new Uint8Array(abKey))).catch((err) => console.log(err));
-  };
+const decryptAesKey = (eKey) => {
+  if (ForgePrivateKey) {
+    return forgeDecryptAesKey(eKey);
+  }
+  const u8Key = str2uint8(forge.util.hexToBytes(eKey));
+  return getSubtle().decrypt(
+    {
+      name: 'RSA-OAEP',
+      hash: { name: 'SHA-1' }, // Edge!
+    },
+    WebCryptoPrivateKey,
+    u8Key
+  ).then(abKey => uint82str(new Uint8Array(abKey))).catch((err) => consoleLog(err));
+};
 
-  const encryptAesKey = (publicKey_Pem, pAesKey) => {
-    const publicKey = forge.pki.publicKeyFromPem(publicKey_Pem);
-    const encryptedAesKey = publicKey.encrypt(pAesKey, 'RSA-OAEP');
-    const hexEncryptedAesKey = forge.util.bytesToHex(encryptedAesKey);
-    return hexEncryptedAesKey;
- }
+const encryptAesKey = (publicKey_Pem, pAesKey) => {
+  const publicKey = forge.pki.publicKeyFromPem(publicKey_Pem);
+  const encryptedAesKey = publicKey.encrypt(pAesKey, 'RSA-OAEP');
+  const hexEncryptedAesKey = forge.util.bytesToHex(encryptedAesKey);
+  return hexEncryptedAesKey;
+}
 
- function encryptSafeName(newName, aesKey) {
+function encryptSafeName(newName, aesKey) {
   const iv = forge.random.getBytesSync(12);
   const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
   cipher.start({ iv });
@@ -163,63 +160,63 @@ function getPrivateKeyOld(ePrivateKey, ticket) {
     data: btoa(cipher.output.data),
     tag: btoa(cipher.mode.tag.data),
   };
-  console.log(eName);
+  consoleLog(eName);
   return eName;
 }
 
 
-  function createSafe(name) {
-    const aesKey = forge.random.getBytesSync(32);
-    const eName = encryptSafeName(name, aesKey);
-/*
-    const iv = forge.random.getBytesSync(12);
-    const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
-    cipher.start({ iv });
-    cipher.update(forge.util.createBuffer(name, 'utf8')); // already joined by encode_item (
-    const result = cipher.finish(); // check 'result' for true/false
-    const eName = {
-      iv: btoa(iv),
-      data: btoa(cipher.output.data),
-      tag: btoa(cipher.mode.tag.data),
-    };
-    console.log(eName);
-    */
-    const hexEncryptedAesKey = encryptAesKey(publicKeyPem, aesKey);
-    return { /*name, */ eName, aes_key: hexEncryptedAesKey, version:3 };
+function createSafe(name) {
+  const aesKey = forge.random.getBytesSync(32);
+  const eName = encryptSafeName(name, aesKey);
+  /*
+  const iv = forge.random.getBytesSync(12);
+  const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
+  cipher.start({ iv });
+  cipher.update(forge.util.createBuffer(name, 'utf8')); // already joined by encode_item (
+  const result = cipher.finish(); // check 'result' for true/false
+  const eName = {
+    iv: btoa(iv),
+    data: btoa(cipher.output.data),
+    tag: btoa(cipher.mode.tag.data),
   };
+  consoleLog(eName);
+  */
+  const hexEncryptedAesKey = encryptAesKey(publicKeyPem, aesKey);
+  return { /*name, */ eName, aes_key: hexEncryptedAesKey, version:3 };
+};
 
-  function createSafeFromFolder(folder) {
-    const aesKey = forge.random.getBytesSync(32);
-    const hexEncryptedAesKey = encryptAesKey(publicKeyPem, aesKey);
-    const result = {};
-    result.key = hexEncryptedAesKey;
+function createSafeFromFolder(folder) {
+  const aesKey = forge.random.getBytesSync(32);
+  const hexEncryptedAesKey = encryptAesKey(publicKeyPem, aesKey);
+  const result = {};
+  result.key = hexEncryptedAesKey;
 //     result.name = folder.name;
-    result.eName = encryptSafeName(folder.name, aesKey);
-    result.version = 3;
-    result.entries = [];
-    for (let e = 0; e < folder.entries.length; e++) {
-      result.entries.push(encryptItem(folder.entries[e].cleartext, aesKey, folder.entries[e].options));
-    }
-    result.folders = [];
-    if ('folders' in folder) {
-      for (let f = 0; f < folder.folders.length; f++) {
-        result.folders.push(encryptFolder(folder.folders[f], aesKey));
-      }
-    }
-    return result;
+  result.eName = encryptSafeName(folder.name, aesKey);
+  result.version = 3;
+  result.entries = [];
+  for (let e = 0; e < folder.entries.length; e++) {
+    result.entries.push(encryptItem(folder.entries[e].cleartext, aesKey, folder.entries[e].options));
   }
+  result.folders = [];
+  if ('folders' in folder) {
+    for (let f = 0; f < folder.folders.length; f++) {
+      result.folders.push(encryptFolder(folder.folders[f], aesKey));
+    }
+  }
+  return result;
+}
 
-  function decryptSafeName(safe, aesKey) {
-    if("version" in safe) {
-      const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
-      decipher.start({ iv: atob(safe.eName.iv), tag: atob(safe.eName.tag) });
-      decipher.update(forge.util.createBuffer(atob(safe.eName.data)));
-      const pass = decipher.finish();
-      return decipher.output.toString('utf8').split('\0')[0];
-    } else {
-      return safe.name; 
-    }
+function decryptSafeName(safe, aesKey) {
+  if("version" in safe) {
+    const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
+    decipher.start({ iv: atob(safe.eName.iv), tag: atob(safe.eName.tag) });
+    decipher.update(forge.util.createBuffer(atob(safe.eName.data)));
+    const pass = decipher.finish();
+    return decipher.output.toString('utf8').split('\0')[0];
+  } else {
+    return safe.name; 
   }
+}
 
   function encryptFolder(folder, aes_key) {
     const result = { entries: [], folders: [] };

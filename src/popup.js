@@ -3,25 +3,24 @@ import {getHostname, consoleLog} from './utils';
 
 let serverName = "passhub.net";
 
-let paymentStatus = "not a payment page";
-
 let activeTab = null;
 
-let validFrames = []
+let frameResponded = 0;
+let validFrames = [];
 let sameUrlFrames = [];
 let paymentFrames = [];
 
-let frameResponded = 0;
+let paymentStatus = "not a payment page";
 let paymentHost = null;
 
 function validFramesRemove(frame) {
   validFrames = validFrames.filter(e => e !== frame);
-  consoleLog(`Removed frfme from validFrames ${frame.url}`);
+  consoleLog(`Removed frame from validFrames ${frame.url}`);
 }
 
 function gotPaymentStatus(tab, frame, response) {
   
-  consoleLog(`gotPaymentStatus from frame ${frame.frameId}`);
+  consoleLog(`gotPaymentStatus from frame ${frame.frameId} ${frame.url}`);
 
   consoleLog(`frameResponded ${frameResponded + 1} out of ${validFrames.length}`);
 
@@ -38,16 +37,52 @@ function gotPaymentStatus(tab, frame, response) {
     frameResponded++;    
   }
 
-
   if(frameResponded == validFrames.length) {
 
     consoleLog('all frames responded');
     consoleLog('validFrames');
     consoleLog(validFrames);
-    consoleLog('sameUrlFrames');
-    consoleLog(sameUrlFrames);
     consoleLog('paymentFrames');
     consoleLog(paymentFrames);
+
+    let mainURL = new URL(activeTab.url);
+
+    const mainDomains = mainURL.host.split('.').reverse();
+    if(mainDomains[mainDomains.length-1] == 'www') {
+      mainDomains.pop();
+    }
+
+    for(let frame of validFrames) {
+
+      const frameURL = new URL(frame.url);
+      const frameDomains = frameURL.host.split('.').reverse();
+      if(frameDomains[frameDomains.length-1] == 'www') {
+        frameDomains.pop();
+      }
+  
+      const minLength = mainDomains.length < frameDomains.length ?  mainDomains.length : frameDomains.length;
+      const maxLength = mainDomains.length > frameDomains.length ?  mainDomains.length : frameDomains.length;
+      consoleLog(`frame ${frame.frameId} ${frame.url} urllength ${frameDomains.length}`);
+      if(maxLength - minLength > 1) {
+        consoleLog('not same length');
+        break;
+      }
+      let same = true;
+      for(let i = 0; i < minLength; i++) {
+        if( frameDomains[i] != mainDomains[i]) {
+          same = false;
+          consoleLog('not sameUrl');
+          break;
+        }
+      }
+      if(same) {
+        consoleLog('sameUrl');
+        sameUrlFrames.push(frame);
+      }
+    }
+
+    consoleLog('sameUrlFrames');
+    consoleLog(sameUrlFrames);
 
     if(paymentFrames.length) {
       const paymentUrl = new URL(paymentFrames[0].url);
@@ -68,6 +103,8 @@ function gotPaymentStatus(tab, frame, response) {
     backgroundConnect();
   }
 }
+
+// does not work for *.co.uk and a like. Probably of no use
 
 function paymentPlatform() {
   if(paymentHost) {
@@ -113,16 +150,13 @@ function installScript(tab, frame) {
 
   browser.tabs.sendMessage(tab.id, {id:'payment status'}, {frameId: frame.frameId})
   .then( response => {
-
-    consoleLog(`response from frame ${frame.frameId}`);
+    consoleLog(`response ${response.payment} from frame ${frame.frameId} ${frame.url}`);
     consoleLog(response);
-
     gotPaymentStatus(tab, frame, response);
   })
   .catch( err =>{
     consoleLog(`catch69 frame: ${frame.frameId}`);
     consoleLog(err);
-//    consoleLog(frame);
 
     browser.tabs.executeScript(
       tab.id,
@@ -174,6 +208,8 @@ browser.tabs.query({ active: true, currentWindow: true, })
     return;
   }
 
+  let mainUrlFrames = [];  // do we need it?
+
   browser.webNavigation.getAllFrames( {tabId: activeTab.id} )
   .then(frameList => {
 
@@ -183,26 +219,24 @@ browser.tabs.query({ active: true, currentWindow: true, })
       consoleLog(`${frame.frameId} ${frame.url}`)
       let frameURL = new URL(frame.url);
 
-//      if((frameURL.host !== "") || (frameURL.protocol == "https:")) {
-      if(true) {
+      if((frameURL.host !== "") || (frameURL.protocol == "https:")) {
         validFrames.push(frame);
         if(frameURL.host == mainURL.host) {
-          sameUrlFrames.push(frame);
+          mainUrlFrames.push(frame);
         }
       }
     }
 
-    consoleLog('sameUrlFrames');
-    consoleLog(sameUrlFrames);
+    consoleLog('mainUrlFrames');
+    consoleLog(mainUrlFrames);
 
-    if(sameUrlFrames.length == 0) {
+    if(mainUrlFrames.length == 0) {
       notRegularPage(activeTab.url);
       return;
     }
 
     consoleLog('Sending message "payment status"');
 
-    // for(let frame of sameUrlFrames) {
     for(let frame of validFrames) {
       installScript(activeTab, frame)
     }
@@ -214,10 +248,191 @@ browser.tabs.query({ active: true, currentWindow: true, })
   })
 });  
 
+let found = [];
+
+function renderAccounts(m) {
+
+  document.querySelector("#wait").style.display = "none";
+  document.querySelector(".login-page").style.display = "none";
+
+  if(paymentHost) {
+    let platform = paymentPlatform();
+    consoleLog(`platform ${platform}`)
+    if(platform) {
+      consoleLog(`platform1 ${platform}`);
+      document.getElementById('paygate').style.display='block';
+      document.getElementById('paygate-url').innerText=platform;
+    }
+  }
+
+  found = m.found;
+
+  consoleLog('renderAccount found: ' + m.found.length);
+
+  if(found.length === 0) {
+    const notFound = document.getElementById('not-found');
+    notFound.style.display = 'block';
+    if(m.id === "payment") {
+      document.getElementById("not-found-password").style.display  = "none";
+      document.getElementById("no-card-records").style.display  = "block";
+    } else {
+      document.getElementById("not-found-password").style.display  = "block";
+      document.getElementById("no-card-records").style.display  = "none";
+      const notFoundHostName = document.getElementById("not-found-hostname");
+      notFoundHostName.innerText = m.hostname;
+    }
+    return;
+  }
+
+  const p = document.querySelector('#advice');
+  consoleLog('renderAccount in advice');
+  try {
+    for(let i = 0; i < found.length; i++) {
+      consoleLog('rendering ' + i +1);
+      const d = document.createElement('div');
+      d.setAttribute('data-row', `${i}`);
+      d.setAttribute('class', 'found-entry');
+      d.onclick = advItemClick;
+  
+      const titleDiv = document.createElement('div');
+      titleDiv.setAttribute('class', 'found-title');
+      titleDiv.innerText = found[i].title;
+      d.appendChild(titleDiv);
+  
+      const safeDiv = document.createElement('div');
+      safeDiv.setAttribute('class', 'found-safe');
+      safeDiv.innerText = found[i].safe;
+      d.appendChild(safeDiv);
+  
+      p.appendChild(d);
+    }
+  } catch (e) {
+    consoleLog('catch 193');
+    consoleLog(e);
+  }
+  p.style.display = 'block';
+  consoleLog('renderAccount advise rendered');
+}
+
+function advItemClick(e) {
+  consoleLog('adwItem this');
+  consoleLog(this);
+  consoleLog('----');
+  consoleLog(e);
+  consoleLog('----');
+  const row = parseInt(this.getAttribute('data-row'));
+  consoleLog(`clicked ${row} row`);
+
+  browser.tabs.query({active: true, currentWindow: true})
+  .then( tabs => {
+    if(paymentStatus == "payment page") {
+      consoleLog(`paymentHost ${paymentHost}`)
+      if(paymentHost) {
+        consoleLog('paymentFrames');
+        consoleLog(paymentFrames);
+
+        for(let frame of paymentFrames ) {
+          consoleLog('frame');
+          consoleLog(frame);
+
+          consoleLog(`sending card data to frameid ${frame.frameId}`)
+          browser.tabs.sendMessage(
+            tabs[0].id,
+            {
+              id: 'card',
+              card: found[row]. card,
+            },
+            {frameId: frame.frameId})
+            .then (response => {
+              consoleLog('response');
+              consoleLog(response);
+              window.close();
+            })
+            .catch(err => {
+              consoleLog('catched 169');
+              consoleLog(err);
+            })
+        }
+      }
+      return;
+    }
+
+    for(let frame of sameUrlFrames) {
+      consoleLog('frame');
+      consoleLog(frame);
+      browser.tabs.sendMessage(
+        tabs[0].id,
+          {
+            id: 'loginRequest',
+            username: found[row].username,
+            password: found[row].password,
+          },  
+          {frameId: frame.frameId}
+        )
+        .then (response => {
+          consoleLog('response');
+          consoleLog(response);
+          window.close();
+        })
+        .catch(err => {
+          consoleLog('catched 169');
+          consoleLog(err);
+        })
+    }
+  });
+}
+
+function activatePassHubDocTab() {
+  browser.tabs.query({ url: 'https://passhub.net/doc/browser-extension#firefox', currentWindow: true }, tabs => {
+    for(let tab of tabs) {
+        browser.tabs.update(tab.id, { active: true });
+        return;
+    }
+    window.open('https://passhub.net/doc/browser-extension#firefox');
+    window.close();
+  });
+}
+
+for(let e of document.querySelectorAll('.help-link')) {
+  e.onclick = activatePassHubDocTab;
+}
+
+function activatePassHubTab() {
+
+  //const manifest = chrome.runtime.getManifest();
+  // const urlList = manifest.externally_connectable.matches;
+  // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
+
+  browser.tabs.query({ url: `https://${getHostname()}/*`, currentWindow: true })
+  .then( passHubTabs => {
+    for(let tab of passHubTabs) {
+      if(tab.url.includes('doc')) {
+        continue;
+      }
+      browser.tabs.update(tab.id, { active: true });
+      window.close();
+      return;
+    }
+    window.open(`https://${serverName}`, 'target="_blank"');
+    window.close();
+  })
+  .catch(err => {
+    consoleLog('tabs query error');
+    consoleLog(err);
+  });
+}
+
+document.querySelector('.close-popup').onclick = () => window.close();
+
+for(let e of document.querySelectorAll('.open-passhub-tab')) {
+  e.onclick = activatePassHubTab;
+}
+
+document.querySelector('.contact-us').onclick = function (){
+  window.open('https://passhub.net/feedback19.php','passhub_contact_us');
+}
 
 let bgConnectionPort;
-
-//let tabId;
 
 function loginCallback(urlQuery) {
   bgConnectionPort.postMessage( { id: 'loginCallback', urlQuery});
@@ -227,13 +442,10 @@ function backgroundConnect() {
   consoleLog("connecting with bg");
   bgConnectionPort = browser.runtime.connect({name:"popup"});
 
-
-
   bgConnectionPort.onMessage.addListener( m => {
     consoleLog(`popup received message from background script, id ${m.id}`);
     consoleLog(m);
-  
-  
+    
     if(m.id === "login") {
       document.querySelector(".login-page").style.display = "block";
       document.querySelector(".logout-div").style.display = "none";
@@ -243,7 +455,6 @@ function backgroundConnect() {
       document.querySelector("#server-name").innerText = m.serverName;
       document.querySelector("#logo").title=`Open page ${m.serverName}`;
       serverName = m.serverName; 
-
 
       document.querySelector("#wait").style.display = "none";
 
@@ -305,257 +516,9 @@ function backgroundConnect() {
       return;
     }
   });
-
 }
-
-let found = [];
-
-function renderAccounts(m) {
-
-  document.querySelector("#wait").style.display = "none";
-  document.querySelector(".login-page").style.display = "none";
-
-  if(paymentHost) {
-    let platform = paymentPlatform();
-    consoleLog(`platform ${platform}`)
-    if(platform) {
-      consoleLog(`platform1 ${platform}`);
-
-      document.getElementById('paygate').style.display='block';
-      document.getElementById('paygate-url').innerText=platform;
-
-
-
-    }
-  }
-
-  found = m.found;
-
-  consoleLog('renderAccount found: ' + m.found.length);
-
-  if(found.length === 0) {
-    const notFound = document.getElementById('not-found');
-    notFound.style.display = 'block';
-    if(m.id === "payment") {
-      document.getElementById("not-found-password").style.display  = "none";
-      document.getElementById("no-card-records").style.display  = "block";
-    } else {
-      document.getElementById("not-found-password").style.display  = "block";
-      document.getElementById("no-card-records").style.display  = "none";
-      const notFoundHostName = document.getElementById('not-found-hostname');
-      notFoundHostName.innerText = m.url;
-    }
-    return;
-  }
-
-
-  const p = document.querySelector('#advise');
-  consoleLog('renderAccount in advise');
-  try {
-    for (let i = 0; i < found.length; i++) {
-      consoleLog('rendering ' + i +1);
-      const d = document.createElement('div');
-      d.setAttribute('data-row', `${i}`);
-      d.setAttribute('class', 'found-entry');
-      d.onclick = advItemClick;
-  
-      const titleDiv = document.createElement('div');
-      titleDiv.setAttribute('class', 'found-title');
-      titleDiv.innerText = found[i].title;
-      d.appendChild(titleDiv);
-  
-      const safeDiv = document.createElement('div');
-      safeDiv.setAttribute('class', 'found-safe');
-      safeDiv.innerText = found[i].safe;
-      d.appendChild(safeDiv);
-  
-      p.appendChild(d);
-    }
-  
-  } catch (e) {
-    consoleLog('catch 193');
-    consoleLog(e);
-  }
-  p.style.display = 'block';
-  consoleLog('renderAccount advise rendered');
-}
-
-
-function advItemClick(e) {
-  consoleLog('adwItem this');
-  consoleLog(this);
-  consoleLog('----');
-  consoleLog(e);
-  consoleLog('----');
-  const row = parseInt(this.getAttribute('data-row'));
-  consoleLog(`clicked ${row} row`);
-
-  browser.tabs.query({active: true, currentWindow: true})
-  .then( tabs => {
-    let tabId = tabs[0].id;
-    if(paymentStatus == "payment page") {
-      consoleLog(`paymentHost ${paymentHost}`)
-      if(paymentHost) {
-        consoleLog('paymentFrames');
-        consoleLog(paymentFrames);
-
-        for(let frame of paymentFrames ) {
-          consoleLog('frame');
-          consoleLog(frame);
-
-          consoleLog(`sending card data to frameid ${frame.frameId}`)
-          browser.tabs.sendMessage(
-            tabs[0].id,
-            {
-              id: 'card',
-              card: found[row]. card,
-            },
-            {frameId: frame.frameId})
-            .then (response => {
-              consoleLog('response');
-              consoleLog(response);
-              window.close();
-            })
-            .catch(err => {
-              consoleLog('catched 216');
-              consoleLog(err);
-            })
-        }
-        return;
-      }
-    }
-
-    browser.tabs.sendMessage(
-      tabs[0].id,
-      {
-        id: 'loginRequest',
-        username: found[row].username,
-        password: found[row].password,
-      })
-      .then (response => {
-        consoleLog(response.farewell);
-        window.close();
-      })
-      .catch (e => {
-        browser.tabs.executeScript(
-          tabId,
-          {
-            code: `loginRequestJson = ${JSON.stringify(found[row])}`,
-          }
-        )
-        .then( () => {
-            browser.tabs.executeScript(
-              tabId,
-              { file: 'contentScript.js' },
-            )
-            .then(result => {
-              const lastErr = browser.runtime.lastError;
-              if (lastErr) {
-                consoleLog(' lastError: ' + JSON.stringify(lastErr));
-              }
-            });
-          }
-        );
-      });
-  });
-}
-
-function activatePassHubTab() {
-
-  //const manifest = chrome.runtime.getManifest();
-  // const urlList = manifest.externally_connectable.matches;
-  // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
-
-  browser.tabs.query({ url: `https://${getHostname()}/*`, currentWindow: true })
-  .then( tabs => {
-
-    for(const tab of tabs ) {
-      if (tab.url.includes('doc')) {
-        continue;
-      }
-      browser.tabs.update(tab.id, { active: true });
-      window.close();
-      return;
-    }
-    window.open(`https://${serverName}`, 'target="_blank"');
-    window.close();
-  })
-  .catch(err => {
-    consoleLog('tabs query error');
-    consoleLog(err);
-  });
-}
-
-function activatePassHubDocTab() {
-  browser.tabs.query({ url: 'https://passhub.net/doc/browser-extension#firefox', currentWindow: true }, function (tabs) {
-    for (let tab of tabs) {
-        browser.tabs.update(tab.id, { active: true });
-        return;
-    }
-    window.open('https://passhub.net/doc/browser-extension#firefox');
-  });
-}
-
-for(let e of document.querySelectorAll('.help-link')) {
-  e.onclick = activatePassHubDocTab;
-}
-
-document.querySelector('.close-popup').onclick = () => window.close();
 
 document.querySelector('.logout-div').onclick = function (){
   bgConnectionPort.postMessage( { id: 'logout'});
   window.close();
 }
-
-for (const e of document.querySelectorAll('.open-passhub-tab')) {
-  e.onclick = activatePassHubTab;
-}
-
-document.querySelector('.contact-us').onclick = function (){
-  window.open('https://passhub.net/feedback19.php','passhub_contact_us');
-}
-
-
-
-
-
-
-/*
-browser.tabs.query({ active: true, currentWindow: true, })
-.then( tabs => {
-  if(!tabs[0].url.startsWith('https://')) {
-    consoleLog('not https page ' + tabs[0].url);
-    backgroundConnect();
-    return;
-  } 
-  consoleLog(tabs[0]);
-
-  browser.tabs.sendMessage(tabs[0].id, {id:'payment status'})
-  .then (response => {
-    consoleLog('xxx');
-    if((response.payment == "payment page")||("not a payment page")) {
-      consoleLog(response);
-      paymentStatus = response.payment;
-      backgroundConnect(); 
-      return;
-    }
-  })
-  .catch (e => {
-    browser.tabs.executeScript(tabs[0].id, { file: 'contentScript.js' })
-    .then(() => {
-      consoleLog('executeScript started');
-    })
-    .catch(err => {  // not a normal page
-      consoleLog('executeScript err');
-      consoleLog(err);
-      backgroundConnect();
-      return;
-    })
-  })
-})
-.catch(err =>{
-  consoleLog('Err');
-  consoleLog(err);
-}) 
-
-*/
