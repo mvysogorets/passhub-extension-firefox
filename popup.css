@@ -25,7 +25,6 @@ body {
   flex-direction: column;
 }
 
-
 #modal-mask {
   display: none;
   width: 100%;
@@ -33,7 +32,7 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  /*  background: rgba(80, 80, 80, 0.5); */
+  background: rgba(80, 80, 80, 0.2);
   z-index: 2;
 }
 
@@ -41,7 +40,6 @@ header {
   height: 80px;
   background-image: url("images/ext-bkg1.jpg");
   background-size: var(--width) 80px;
-  /*  margin-bottom: 13px; */
 }
 
 header>div {
@@ -56,7 +54,6 @@ header>div {
   margin-top: 36px;
   width: 120px;
   height: 24px;
-
 }
 
 #logo:hover {
@@ -64,19 +61,6 @@ header>div {
   margin-left: -1px;
   width: 126px;
   height: 26px;
-}
-
-.refresh {
-  margin-right: 20px;
-  height: 24px;
-  width: 24px;
-  vertical-align: text-bottom;
-  fill: white;
-  opacity: 0.5;
-}
-
-.refresh:hover {
-  opacity: 0.8;
 }
 
 .help {
@@ -100,6 +84,14 @@ header>div {
 
 .close-popup:hover {
   background-image: url("images/close-hover.svg");
+}
+
+.icons>svg {
+  opacity: 0.5;
+}
+
+.icons>svg:hover {
+  opacity: 0.8;
 }
 
 /*--------*/
@@ -140,15 +132,10 @@ header>div {
   margin: 5px 0;
 }
 
-
 /*--------*/
 
-
-
 #paygate {
-  margin: 18px 40px;
-  min-height: 62px;
-  width: 320px;
+  margin: 0 0 16px 0;
   font-family: OpenSans;
   font-style: normal;
   font-weight: normal;
@@ -170,37 +157,15 @@ header>div {
 
 /*--------*/
 
-.show-credit-card {
-  display: flex;
-  align-items: flex-end;
-  flex-direction: column;
-}
-
-.credit-card {
-  height: 24px;
-  width: 24px;
-  vertical-align: text-bottom;
-  fill: white;
-  opacity: 0.5;
-}
-
-.credit-card {
-  fill: black;
-}
-
-.credit-card:hover {
-  opacity: 0.8;
-}
-
-
 .found-entry {
   font-family: OpenSans;
   background-color: rgba(27, 27, 38, 0.1);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   padding-top: 5px;
   padding-bottom: 5px;
   padding-left: 20px;
   position: relative;
+  border-radius: 3px;
 }
 
 .found-entry .three-dots {
@@ -234,11 +199,15 @@ header>div {
   z-index: 10;
   right: 10px;
   top: 10px;
-  padding: 10px 15px 10px 20px;
+  padding: 10px 0 10px 0;
   width: 200px;
   border-radius: 5px;
 
   font-size: 16px;
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+
   line-height: 32px;
   min-width: 180px;
   background-color: white;
@@ -247,6 +216,7 @@ header>div {
 
 .copy-dialog div {
   cursor: pointer;
+  padding: 0 10px 0 20px;
 }
 
 .copy-dialog div:hover {

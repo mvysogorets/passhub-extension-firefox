@@ -138,8 +138,9 @@ function notRegularPage(url) {
   // e.g. about:debugging#/runtime/this-firefox
   consoleLog('not a regular page');
   showPage('.not-a-regular-page');
-  document.querySelector(".refresh").style.display = "none";
-  document.querySelector(".lower-tab").style.display = "none";
+
+  document.querySelector(".icons").style.display = "none";
+  document.querySelector("#not-a-regular-page-url").innerText = url;
 }
 
 function installScript(tab, frame) {
@@ -542,9 +543,13 @@ function renderAccounts(message) {
 
   if (found.length === 0) {
     showPage('.not-found-page')
-    document.querySelector(".lower-tab").style.display = "flex";
+    document.querySelector(".icons").style.display = "flex";
 
-    document.querySelector(".refresh").style.display = "block";
+    /*    
+        document.querySelector(".lower-tab").style.display = "flex";
+    
+        document.querySelector(".refresh").style.display = "block";
+    */
 
     if (message.id === "payment") {
       document.getElementById("not-found-password").style.display = "none";
@@ -552,6 +557,9 @@ function renderAccounts(message) {
     } else {
       document.getElementById("not-found-password").style.display = "block";
       document.getElementById("no-card-records").style.display = "none";
+
+      document.querySelector(".credit-card").style.display = "initial";
+
       const notFoundHostName = document.getElementById("not-found-hostname");
       notFoundHostName.innerText = message.hostname;
     }
@@ -559,18 +567,21 @@ function renderAccounts(message) {
   }
 
   showPage('#advice-page')
-  document.querySelector(".lower-tab").style.display = "flex";
+  document.querySelector(".icons").style.display = "flex";
+  // document.querySelector(".lower-tab").style.display = "flex";
 
-  let cardDivDisplay = 'block';
+  let cardDivDisplay = 'initial';
   if (message.id === "payment") {
     paymentStatus = "payment page";
     cardDivDisplay = 'none';
   }
+  document.querySelector(".credit-card").style.display = cardDivDisplay;
 
+  /*
   for (const cardDiv of document.querySelectorAll('.show-credit-card')) {
     cardDiv.style.display = cardDivDisplay;
   }
-
+*/
   const adviceListDiv = document.querySelector('#advice-list');
 
   adviceListDiv.innerHTML = '';
@@ -671,6 +682,10 @@ function showPage(pageSelector) {
   const thePage = document.querySelector(pageSelector);
   thePage.style.display = 'block';
 
+  document.querySelector(".credit-card").style.display = "initial";
+  document.querySelector(".refresh").style.display = "initial";
+  document.querySelector(".logout").style.display = "initial";
+  document.querySelector(".icons").style.display = "flex";
 }
 
 function activatePassHubDocTab() {
@@ -745,9 +760,9 @@ function backgroundConnect() {
     if (m.id === "login") {
       showPage(".login-page");
 
-      document.querySelector(".refresh").style.display = "none";
+      document.querySelector(".icons").style.display = "none";
 
-      document.querySelector(".lower-tab").style.display = "none";
+      //      document.querySelector(".lower-tab").style.display = "none";
 
 
       const ticketURL = `${m.urlBase}getticket.php`;
@@ -767,14 +782,15 @@ function backgroundConnect() {
 
     if (m.id == "create account") {
       showPage(".create-account-page");
-      document.querySelector(".lower-tab").style.display = "none";
+      document.querySelector(".icons").style.display = "none";
+      //      document.querySelector(".lower-tab").style.display = "none";
       document.querySelector(".create-account-page .open-passhub-tab").innerText = serverName;
     }
 
     if (m.id === "signed") {
       document.querySelector(".login-page").style.display = "none";
 
-      document.querySelector(".lower-tab").style.display = "flex";
+      //      document.querySelector(".lower-tab").style.display = "flex";
 
       browser.tabs.query({ active: true, currentWindow: true })
         .then(tabs => {
@@ -807,16 +823,20 @@ function backgroundConnect() {
     if ((m.id === "signing in..") || (m.id === "getting data..") || (m.id === "decrypting..")) {
       consoleLog('- ' + m.id);
       showPage('.wait-page');
+      document.querySelector(".icons").style.display = "none";
       document.querySelector("#wait-message").innerText = m.id;
       return;
     }
   });
 }
 
-document.querySelector('.logout-div').onclick = function () {
+
+
+document.querySelector('.logout').onclick = function () {
   bgConnectionPort.postMessage({ id: 'logout' });
   window.close();
 }
+
 
 document.querySelector('.refresh').addEventListener('click', () => {
   bgConnectionPort.postMessage({ id: 'refresh' });
