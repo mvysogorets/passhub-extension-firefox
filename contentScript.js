@@ -221,5 +221,4 @@ function fillCardData(card) {
   }
 }
 
-
 let scriptDummyResult = 'scriptDummyResult';

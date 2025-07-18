@@ -87,7 +87,6 @@ function logStorageChange(changes, area) {
   }
   state = "login";
   initServerUrl()
-  // setHistname(changes['passhubHost'].newValue);
 }
 
 browser.storage.onChanged.addListener(logStorageChange)
@@ -95,7 +94,6 @@ browser.storage.onChanged.addListener(logStorageChange)
 
 function setCsrfToken(t) {
   csrfToken = t;
-  //window.localStorage.setItem('csrf', t);
   consoleLog('csrfToken');
   consoleLog(csrfToken);
 }
@@ -117,25 +115,14 @@ function logout() {
   consoleLog('logout received');
   state = "logout_request";
   consoleLog('state ' + state);
-  /*  
-    try {
-      popupConnectionPort.postMessage({ id: state });
-    } catch (err) {
-      consoleLog('catch 144')
-    }
-  */
   axios.get(`${getApiURL()}logoutSPA.php`, {})
     .then((reply) => {
       consoleLog(reply);
-      // consoleLog("csrf token:", reply.headers["x-csrf-token"]);
-      //setCsrfToken(reply.headers["x-csrf-token"]);
       const result = reply.data;
       if (result.status == "Ok") {
         state = "login";
         try {
-          //          popupConnectionPort.postMessage({ id: state });
           popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
-
         } catch (err) {
           // do nothing
         }
@@ -158,8 +145,6 @@ browser.runtime.onConnect.addListener(port => {
 
   consoleLog('bg got connection with');
   consoleLog(popupConnectionPort);
-
-
 
   popupConnected = true;
 
@@ -227,18 +212,6 @@ browser.runtime.onConnect.addListener(port => {
 
         startActivityTimer()
 
-
-        /*
-                let foundRecords = await advise(message.url);
-                if (foundRecords.length > 0) {
-                  consoleLog('bg advise:')
-                  consoleLog(foundRecords);
-                } else {
-                  consoleLog('bg advise: nothing found')
-                }
-                popupConnectionPort.postMessage({ id: 'advise', found: foundRecords, hostname, serverName: getHostname() });
-                return;
-        */
         advise(message.url)
           .then(foundRecords => {
             if (foundRecords.length > 0) {
@@ -281,12 +254,6 @@ browser.runtime.onConnect.addListener(port => {
       logout();
       return;
     }
-    /*
-        if(message.id === "openPasshubWindow") {
-          browser.tabs.create({url:'./frontend/index.html'});
-          return;
-        }
-    */
   });
   popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
 });
@@ -427,12 +394,6 @@ function downloadUserData() {
               }
 
               popupConnectionPort.postMessage({ id: state })
-              /*              
-                              .catch(err => {
-                                consoleLog("popup already closed, do not bother")
-                                consoleLog(err)
-                              });
-              */
             });
           })
       }
@@ -469,18 +430,11 @@ const refreshUserData = ({ safes = [] } = {}) => {
 
         });
       }
-      /*
-      if (result.data.status === "login") {
-        window.location.href = "expired.php";
-        return;
-      }
-      */
     })
     .catch((error) => {
       consoleLog(error);
     });
 };
-
 
 function paymentCards() {
   const result = [];
@@ -502,10 +456,8 @@ function paymentCards() {
   }
   consoleLog('paymentCard returns');
   consoleLog(result);
-
   return result;
 }
-
 
 function hostInItem(hostname, item) {
   const urls = item.cleartext[3].split("\x01");
@@ -549,23 +501,6 @@ async function advise(url) {
               if (item.version === 5 && item.cleartext[0] === "card") {
                 continue;
               }
-              /*
-                            let itemUrl = item.cleartext[3].toLowerCase().trim();
-                            if (itemUrl.length === 0) {
-                              continue;
-                            }
-              
-                            if (itemUrl.substring(0, 4) != "http") {
-                              itemUrl = "https://" + itemUrl;
-                            }
-              
-                            itemUrl = new URL(itemUrl);
-                            let itemHost = itemUrl.hostname.toLowerCase();
-                            if (itemHost.substring(0, 4) === "www.") {
-                              itemHost = itemHost.substring(4);
-                            }
-                              */
-              //              if (itemHost == hostname) {
               if ((item.cleartext.length > 5) && (item.cleartext[5].length > 0)) {
                 const secret = item.cleartext[5];
 
@@ -598,47 +533,3 @@ async function advise(url) {
   }
   return result;
 };
-
-
-
-/* probably we do not need it
-
-browser.runtime.onMessage.addListener(
-  (request, sender, sendResponse) => {
-    consoleLog("background got message in state " + state);
-    consoleLog(request);
-    if(request.id === "popup shown") {
-      const url = new URL(request.url);
-      let hostname = url.hostname.toLowerCase();
-      if (hostname.substring(0, 4) === "www.") {
-        hostname = hostname.substring(4);
-      }
-
-      if((state === "login")) {
-        sendResponse({id: state, urlBase: getApiURL()});
-        return;
-      } else if(state === "signed") {
-        consoleLog(advise(request.url));
-        sendResponse({id: 'advise', advise: advise(request.url), url: hostname});
-        return;
-      }
-      return;
-    }
-    if(request.id === "loginCallback") {
-      state = "authenticating";
-      sendResponse({id: state});
-      axios.get(`${getApiURL()}loginSPA.php${request.urlQuery}`)
-      .then((reply) => {
-        consoleLog(reply);
-        // consoleLog("csrf token:", reply.headers["x-csrf-token"]);
-        setCsrfToken(reply.headers["x-csrf-token"]);
-        const result = reply.data;
-        if (result.status == "Ok") {
-          downloadUserData();
-        }
-      });
-    }
-  }
-)
-
-*/

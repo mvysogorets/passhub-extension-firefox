@@ -2,9 +2,9 @@ import * as WWPass from 'wwpass-frontend';
 
 import forge from 'node-forge';
 
-import {consoleLog} from './utils';
+import { consoleLog } from './utils';
 
-function serverLog() {}
+function serverLog() { }
 
 let WebCryptoPrivateKey = null;
 let ForgePrivateKey = null;
@@ -75,7 +75,7 @@ function getPrivateKey(data) {
         },
         thePromise.clientKey,
         b64ToAb(data.ePrivateKey)
-      ).then( (ab) => {
+      ).then((ab) => {
         const pem = ab2str(ab);
         // consoleLog(pem)
         return pem2CryptoKey(pem).catch(() => { // try old keys, generated in forge
@@ -91,42 +91,42 @@ function getPrivateKey(data) {
 function getPrivateKeyOld(ePrivateKey, ticket) {
 
   return WWPass.cryptoPromise.getWWPassCrypto(ticket, 'AES-CBC')
-  .then((thePromise) => {
-    // consoleLog('after getWWPassCrypto');
-    const iv = new Uint8Array([176, 178, 97, 142, 156, 31, 45, 30, 81, 210, 85, 14, 202, 203, 86, 240]);
-    return getSubtle().decrypt(
-      {
-        name: 'AES-CBC',
-        iv,
-      },
-      thePromise.clientKey,
-      b64ToAb(ePrivateKey)
-    ).then(ab2str)
-      .then((pem) => {
-        if (isIOS10() /* || navigator.userAgent.match(/edge/i) */) {
-          ForgePrivateKey = forge.pki.privateKeyFromPem(pem);
-          return ForgePrivateKey;
-        }
-        // return pem2CryptoKey(pem);
-        return pem2CryptoKey(pem).catch(() => { // try old keys, generated in forge
-          serverLog('forge privateKey');
-          ForgePrivateKey = forge.pki.privateKeyFromPem(pem);
-          return ForgePrivateKey;
+    .then((thePromise) => {
+      // consoleLog('after getWWPassCrypto');
+      const iv = new Uint8Array([176, 178, 97, 142, 156, 31, 45, 30, 81, 210, 85, 14, 202, 203, 86, 240]);
+      return getSubtle().decrypt(
+        {
+          name: 'AES-CBC',
+          iv,
+        },
+        thePromise.clientKey,
+        b64ToAb(ePrivateKey)
+      ).then(ab2str)
+        .then((pem) => {
+          if (isIOS10() /* || navigator.userAgent.match(/edge/i) */) {
+            ForgePrivateKey = forge.pki.privateKeyFromPem(pem);
+            return ForgePrivateKey;
+          }
+          // return pem2CryptoKey(pem);
+          return pem2CryptoKey(pem).catch(() => { // try old keys, generated in forge
+            serverLog('forge privateKey');
+            ForgePrivateKey = forge.pki.privateKeyFromPem(pem);
+            return ForgePrivateKey;
+          });
+        })
+        .catch((error) => {
+          // TODO: pop it up
+          consoleLog('error88:')
+          consoleLog(error);
         });
-      })
-      .catch((error) => {
-        // TODO: pop it up
-        consoleLog('error88:')
-        consoleLog(error);
-      });
-  });
+    });
 }
 
 const forgeDecryptAesKey = async (eKeyH) => {
   const eKey = forge.util.hexToBytes(eKeyH);
   return ForgePrivateKey.decrypt(eKey, 'RSA-OAEP');
 };
-  
+
 const decryptAesKey = (eKey) => {
   if (ForgePrivateKey) {
     return forgeDecryptAesKey(eKey);
@@ -168,21 +168,8 @@ function encryptSafeName(newName, aesKey) {
 function createSafe(name) {
   const aesKey = forge.random.getBytesSync(32);
   const eName = encryptSafeName(name, aesKey);
-  /*
-  const iv = forge.random.getBytesSync(12);
-  const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
-  cipher.start({ iv });
-  cipher.update(forge.util.createBuffer(name, 'utf8')); // already joined by encode_item (
-  const result = cipher.finish(); // check 'result' for true/false
-  const eName = {
-    iv: btoa(iv),
-    data: btoa(cipher.output.data),
-    tag: btoa(cipher.mode.tag.data),
-  };
-  consoleLog(eName);
-  */
   const hexEncryptedAesKey = encryptAesKey(publicKeyPem, aesKey);
-  return { /*name, */ eName, aes_key: hexEncryptedAesKey, version:3 };
+  return { /*name, */ eName, aes_key: hexEncryptedAesKey, version: 3 };
 };
 
 function createSafeFromFolder(folder) {
@@ -190,7 +177,7 @@ function createSafeFromFolder(folder) {
   const hexEncryptedAesKey = encryptAesKey(publicKeyPem, aesKey);
   const result = {};
   result.key = hexEncryptedAesKey;
-//     result.name = folder.name;
+  //     result.name = folder.name;
   result.eName = encryptSafeName(folder.name, aesKey);
   result.version = 3;
   result.entries = [];
@@ -207,219 +194,219 @@ function createSafeFromFolder(folder) {
 }
 
 function decryptSafeName(safe, aesKey) {
-  if("version" in safe) {
+  if ("version" in safe) {
     const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
     decipher.start({ iv: atob(safe.eName.iv), tag: atob(safe.eName.tag) });
     decipher.update(forge.util.createBuffer(atob(safe.eName.data)));
     const pass = decipher.finish();
     return decipher.output.toString('utf8').split('\0')[0];
   } else {
-    return safe.name; 
+    return safe.name;
   }
 }
 
-  function encryptFolder(folder, aes_key) {
-    const result = { entries: [], folders: [] };
-    if (folder.hasOwnProperty('name')) { // new, imported
-      result.name = encryptFolderName(folder.name, aes_key);
-    }
-    if (folder.hasOwnProperty('_id')) { // merged, restore
-      result._id = folder._id;
-    }
-    for (let e = 0; e < folder.entries.length; e++) {
-      result.entries.push(encryptItem(folder.entries[e].cleartext, aes_key, folder.entries[e].options));
-    }
-    for (let f = 0; f < folder.folders.length; f++) {
-      result.folders.push(encryptFolder(folder.folders[f], aes_key));
-    }
-    return result;
+function encryptFolder(folder, aes_key) {
+  const result = { entries: [], folders: [] };
+  if (folder.hasOwnProperty('name')) { // new, imported
+    result.name = encryptFolderName(folder.name, aes_key);
   }
-    
-  function decodeItemGCM(item, aesKey) {
-    const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
-    decipher.start({ iv: atob(item.iv), tag: atob(item.tag) });
-    decipher.update(forge.util.createBuffer(atob(item.data)));
-    const pass = decipher.finish();
+  if (folder.hasOwnProperty('_id')) { // merged, restore
+    result._id = folder._id;
+  }
+  for (let e = 0; e < folder.entries.length; e++) {
+    result.entries.push(encryptItem(folder.entries[e].cleartext, aes_key, folder.entries[e].options));
+  }
+  for (let f = 0; f < folder.folders.length; f++) {
+    result.folders.push(encryptFolder(folder.folders[f], aes_key));
+  }
+  return result;
+}
+
+function decodeItemGCM(item, aesKey) {
+  const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
+  decipher.start({ iv: atob(item.iv), tag: atob(item.tag) });
+  decipher.update(forge.util.createBuffer(atob(item.data)));
+  const pass = decipher.finish();
+  return decipher.output.toString('utf8').split('\0');
+}
+
+function decodeItem(item, aesKey) {
+  if ((item.version === 3) || (item.version === 4) || (item.version === 5)) {
+    return decodeItemGCM(item, aesKey);
+  }
+
+  const decipher = forge.cipher.createDecipher('AES-ECB', aesKey);
+  decipher.start({ iv: forge.random.getBytesSync(16) });
+
+  if (item.version === 1) {
+    const encryptedData = forge.util.hexToBytes(item.creds);
+    decipher.update(forge.util.createBuffer(encryptedData));
+    const result = decipher.finish(); // check 'result' for true/false
+    const creds = decipher.output.toString('utf8').split('\0');
+    return [item.title, creds[0], creds[1], item.url, item.notes];
+  }
+  if (item.version === 2) {
+    const encryptedData = forge.util.hexToBytes(item.data);
+    decipher.update(forge.util.createBuffer(encryptedData));
+    const result = decipher.finish(); // check 'result' for true/false
     return decipher.output.toString('utf8').split('\0');
   }
-  
-  function decodeItem(item, aesKey) {
-    if ( (item.version === 3) || (item.version === 4) || (item.version === 5)) {
-      return decodeItemGCM(item, aesKey);
-    }
+  alert(`Error 450: cannot decode data version ${item.version}`); //  ??
+  return null;
+}
 
-    const decipher = forge.cipher.createDecipher('AES-ECB', aesKey);
-    decipher.start({ iv: forge.random.getBytesSync(16) });
-  
-    if (item.version === 1) {
-      const encryptedData = forge.util.hexToBytes(item.creds);
-      decipher.update(forge.util.createBuffer(encryptedData));
-      const result = decipher.finish(); // check 'result' for true/false
-      const creds = decipher.output.toString('utf8').split('\0');
-      return [item.title, creds[0], creds[1], item.url, item.notes];
-    }
-    if (item.version === 2) {
-      const encryptedData = forge.util.hexToBytes(item.data);
-      decipher.update(forge.util.createBuffer(encryptedData));
-      const result = decipher.finish(); // check 'result' for true/false
-      return decipher.output.toString('utf8').split('\0');
-    }
-    alert(`Error 450: cannot decode data version ${item.version}`); //  ??
-    return null;
-  }
+function decodeFolder(item, aesKey) {
+  const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
+  decipher.start({ iv: atob(item.iv), tag: atob(item.tag) });
+  decipher.update(forge.util.createBuffer(atob(item.data)));
+  const pass = decipher.finish();
+  return decipher.output.toString('utf8').split('\0');
+}
 
-  function decodeFolder(item, aesKey) {
-    const decipher = forge.cipher.createDecipher('AES-GCM', aesKey);
-    decipher.start({ iv: atob(item.iv), tag: atob(item.tag) });
-    decipher.update(forge.util.createBuffer(atob(item.data)));
-    const pass = decipher.finish();
-    return decipher.output.toString('utf8').split('\0');
-  }
-  
-  function encryptFolderName(cleartextName, aesKey) {
-  
-    const iv = forge.random.getBytesSync(16);
-    const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
-    cipher.start({ iv });
-    cipher.update(forge.util.createBuffer(cleartextName, 'utf8')); // already joined by encode_item (
-    const result = cipher.finish(); // check 'result' for true/false
-    return JSON.stringify({
-      iv: btoa(iv),
-      data: btoa(cipher.output.data),
-      tag: btoa(cipher.mode.tag.data),
-      version: 3,
-    });
-  }
+function encryptFolderName(cleartextName, aesKey) {
 
-  function encryptItemGCM(cleartextItem, aesKey, options) {
-    const cleartextData = cleartextItem.join('\0');
-    const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
-    const iv = forge.random.getBytesSync(16);
-    cipher.start({ iv });
-    cipher.update(forge.util.createBuffer(cleartextData, 'utf8')); // already joined by encode_item (
-    const result = cipher.finish(); // check 'result' for true/false
-  
-    const obj = {
-      iv: btoa(iv),
-      data: btoa(cipher.output.data),
-      tag: btoa(cipher.mode.tag.data),
-      version: 3,
-    };
+  const iv = forge.random.getBytesSync(16);
+  const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
+  cipher.start({ iv });
+  cipher.update(forge.util.createBuffer(cleartextName, 'utf8')); // already joined by encode_item (
+  const result = cipher.finish(); // check 'result' for true/false
+  return JSON.stringify({
+    iv: btoa(iv),
+    data: btoa(cipher.output.data),
+    tag: btoa(cipher.mode.tag.data),
+    version: 3,
+  });
+}
 
-    if(options.version) {
-      obj.version = options.version;
-    } else if (cleartextItem.length === 6) {
-      obj.version = 4;
-    }
+function encryptItemGCM(cleartextItem, aesKey, options) {
+  const cleartextData = cleartextItem.join('\0');
+  const cipher = forge.cipher.createCipher('AES-GCM', aesKey);
+  const iv = forge.random.getBytesSync(16);
+  cipher.start({ iv });
+  cipher.update(forge.util.createBuffer(cleartextData, 'utf8')); // already joined by encode_item (
+  const result = cipher.finish(); // check 'result' for true/false
 
-    if (typeof options !== 'undefined') {
-      // Object.assign "polifill"
-      for (let prop1 in options) {
-        obj[prop1] = options[prop1];
-      }
-    }
-    return JSON.stringify(obj);
-  }
-  
-
-  function encryptItem(item, aesKey, options) {
-    return encryptItemGCM(item, aesKey, options);
-  }
-
-  function encryptFile(pFileContent, aesKey) {
-    const fileArray = new Uint8Array(pFileContent);
-    const fileAesKey = forge.random.getBytesSync(32);
-    const fileCipher = forge.cipher.createCipher("AES-GCM", fileAesKey);
-    const fileIV = forge.random.getBytesSync(12);
-    fileCipher.start({ iv: fileIV });
-    fileCipher.update(forge.util.createBuffer(fileArray));
-    fileCipher.finish();
-    const keyCipher = forge.cipher.createCipher(
-      "AES-ECB",
-      aesKey
-    );
-    const keyIV = forge.random.getBytesSync(16);
-    keyCipher.start({ iv: keyIV });
-    keyCipher.update(forge.util.createBuffer(fileAesKey));
-    keyCipher.finish();
-    return {
-      fileInfo: JSON.stringify({
-        version: 3,
-        key: btoa(keyCipher.output.data),
-        iv: btoa(fileIV),
-        // data: btoa(fileCipher.output.data),
-        tag: btoa(fileCipher.mode.tag.data),
-      }),
-      cFileContent: fileCipher.output.data
-    }
-  }
-
-  const decryptFile = (fileObj, aesKey) => {
-    const filename = decodeItemGCM(fileObj.filename, aesKey)[0];
-    const keyDecipher = forge.cipher.createDecipher('AES-ECB', aesKey);
-    keyDecipher.start({ iv: atob(fileObj.file.iv) });
-    keyDecipher.update(forge.util.createBuffer(atob(fileObj.file.key)));
-    keyDecipher.finish();
-    const fileAesKey = keyDecipher.output.data;
-    const decipher = forge.cipher.createDecipher('AES-GCM', fileAesKey);
-    decipher.start({ iv: atob(fileObj.file.iv), tag: atob(fileObj.file.tag) });
-    decipher.update(forge.util.createBuffer(atob(fileObj.file.data)));
-    const success = decipher.finish(); // got false actully, still decrypted ok????
-    const { length } = decipher.output.data;
-    const buf = new ArrayBuffer(length);
-    const arr = new Uint8Array(buf);
-    let i = -1;
-    while (++i < length) {
-      arr[i] = decipher.output.data.charCodeAt(i);
-    }
-    return { filename, buf };
+  const obj = {
+    iv: btoa(iv),
+    data: btoa(cipher.output.data),
+    tag: btoa(cipher.mode.tag.data),
+    version: 3,
   };
-  
-  function moveFile1(item, srcSafe, dstSafe) {
 
-    const keyDecipher = forge.cipher.createDecipher('AES-ECB', srcSafe.bstringKey);
-    keyDecipher.start({ iv: atob(item.file.iv) }); // any iv goes: AES-ECB
-    keyDecipher.update(forge.util.createBuffer(atob(item.file.key)));
-    keyDecipher.finish();
-    const fileAesKey = keyDecipher.output.data;
-  
-    const keyCipher = forge.cipher.createCipher('AES-ECB', dstSafe.bstringKey);
-    const keyIV = forge.random.getBytesSync(16);
-    keyCipher.start({ iv: keyIV });
-    keyCipher.update(forge.util.createBuffer(fileAesKey));
-    keyCipher.finish();
-  
-    const pItem = decodeItemGCM(item, srcSafe.bstringKey);
-    const eItem = JSON.parse(encryptItem(pItem, dstSafe.bstringKey));
-    
-    eItem.file = Object.assign({}, {...item.file});
-    eItem.file.key = btoa(keyCipher.output.data);
-    return eItem;
-  }
-  
-  function moveFile(item, srcBinaryKey, dstBinaryKey) {
-
-    const keyDecipher = forge.cipher.createDecipher('AES-ECB', srcBinaryKey);
-    keyDecipher.start({ iv: atob(item.file.iv) }); // any iv goes: AES-ECB
-    keyDecipher.update(forge.util.createBuffer(atob(item.file.key)));
-    keyDecipher.finish();
-    const fileAesKey = keyDecipher.output.data;
-  
-    const keyCipher = forge.cipher.createCipher('AES-ECB', dstBinaryKey);
-    const keyIV = forge.random.getBytesSync(16);
-    keyCipher.start({ iv: keyIV });
-    keyCipher.update(forge.util.createBuffer(fileAesKey));
-    keyCipher.finish();
-  
-    const pItem = decodeItemGCM(item, srcBinaryKey);
-    const eItem = JSON.parse(encryptItem(pItem, dstBinaryKey, {}));
-    
-    eItem.file = Object.assign({}, {...item.file});
-    eItem.file.key = btoa(keyCipher.output.data);
-    return JSON.stringify(eItem);
+  if (options.version) {
+    obj.version = options.version;
+  } else if (cleartextItem.length === 6) {
+    obj.version = 4;
   }
 
-  
+  if (typeof options !== 'undefined') {
+    // Object.assign "polifill"
+    for (let prop1 in options) {
+      obj[prop1] = options[prop1];
+    }
+  }
+  return JSON.stringify(obj);
+}
+
+
+function encryptItem(item, aesKey, options) {
+  return encryptItemGCM(item, aesKey, options);
+}
+
+function encryptFile(pFileContent, aesKey) {
+  const fileArray = new Uint8Array(pFileContent);
+  const fileAesKey = forge.random.getBytesSync(32);
+  const fileCipher = forge.cipher.createCipher("AES-GCM", fileAesKey);
+  const fileIV = forge.random.getBytesSync(12);
+  fileCipher.start({ iv: fileIV });
+  fileCipher.update(forge.util.createBuffer(fileArray));
+  fileCipher.finish();
+  const keyCipher = forge.cipher.createCipher(
+    "AES-ECB",
+    aesKey
+  );
+  const keyIV = forge.random.getBytesSync(16);
+  keyCipher.start({ iv: keyIV });
+  keyCipher.update(forge.util.createBuffer(fileAesKey));
+  keyCipher.finish();
+  return {
+    fileInfo: JSON.stringify({
+      version: 3,
+      key: btoa(keyCipher.output.data),
+      iv: btoa(fileIV),
+      // data: btoa(fileCipher.output.data),
+      tag: btoa(fileCipher.mode.tag.data),
+    }),
+    cFileContent: fileCipher.output.data
+  }
+}
+
+const decryptFile = (fileObj, aesKey) => {
+  const filename = decodeItemGCM(fileObj.filename, aesKey)[0];
+  const keyDecipher = forge.cipher.createDecipher('AES-ECB', aesKey);
+  keyDecipher.start({ iv: atob(fileObj.file.iv) });
+  keyDecipher.update(forge.util.createBuffer(atob(fileObj.file.key)));
+  keyDecipher.finish();
+  const fileAesKey = keyDecipher.output.data;
+  const decipher = forge.cipher.createDecipher('AES-GCM', fileAesKey);
+  decipher.start({ iv: atob(fileObj.file.iv), tag: atob(fileObj.file.tag) });
+  decipher.update(forge.util.createBuffer(atob(fileObj.file.data)));
+  const success = decipher.finish(); // got false actully, still decrypted ok????
+  const { length } = decipher.output.data;
+  const buf = new ArrayBuffer(length);
+  const arr = new Uint8Array(buf);
+  let i = -1;
+  while (++i < length) {
+    arr[i] = decipher.output.data.charCodeAt(i);
+  }
+  return { filename, buf };
+};
+
+function moveFile1(item, srcSafe, dstSafe) {
+
+  const keyDecipher = forge.cipher.createDecipher('AES-ECB', srcSafe.bstringKey);
+  keyDecipher.start({ iv: atob(item.file.iv) }); // any iv goes: AES-ECB
+  keyDecipher.update(forge.util.createBuffer(atob(item.file.key)));
+  keyDecipher.finish();
+  const fileAesKey = keyDecipher.output.data;
+
+  const keyCipher = forge.cipher.createCipher('AES-ECB', dstSafe.bstringKey);
+  const keyIV = forge.random.getBytesSync(16);
+  keyCipher.start({ iv: keyIV });
+  keyCipher.update(forge.util.createBuffer(fileAesKey));
+  keyCipher.finish();
+
+  const pItem = decodeItemGCM(item, srcSafe.bstringKey);
+  const eItem = JSON.parse(encryptItem(pItem, dstSafe.bstringKey));
+
+  eItem.file = Object.assign({}, { ...item.file });
+  eItem.file.key = btoa(keyCipher.output.data);
+  return eItem;
+}
+
+function moveFile(item, srcBinaryKey, dstBinaryKey) {
+
+  const keyDecipher = forge.cipher.createDecipher('AES-ECB', srcBinaryKey);
+  keyDecipher.start({ iv: atob(item.file.iv) }); // any iv goes: AES-ECB
+  keyDecipher.update(forge.util.createBuffer(atob(item.file.key)));
+  keyDecipher.finish();
+  const fileAesKey = keyDecipher.output.data;
+
+  const keyCipher = forge.cipher.createCipher('AES-ECB', dstBinaryKey);
+  const keyIV = forge.random.getBytesSync(16);
+  keyCipher.start({ iv: keyIV });
+  keyCipher.update(forge.util.createBuffer(fileAesKey));
+  keyCipher.finish();
+
+  const pItem = decodeItemGCM(item, srcBinaryKey);
+  const eItem = JSON.parse(encryptItem(pItem, dstBinaryKey, {}));
+
+  eItem.file = Object.assign({}, { ...item.file });
+  eItem.file.key = btoa(keyCipher.output.data);
+  return JSON.stringify(eItem);
+}
+
+
 
 export {
   getPrivateKey,

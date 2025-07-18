@@ -1,5 +1,5 @@
-const consoleLog = console.log;
-// const consoleLog = () => { };
+//const consoleLog = console.log;
+const consoleLog = () => { };
 
 let error_message = '';
 let currentServer = '';
@@ -89,8 +89,6 @@ consoleLog('options JS started');
 const form = document.querySelector("form");
 
 form.addEventListener("submit", onFormSubmit);
-
-
 
 document.getElementById('url').addEventListener('input', e => {
   consoleLog('change event fired');

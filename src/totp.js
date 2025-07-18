@@ -47,8 +47,6 @@ async function generateHOTP(key, counter) {
     counterArray,
   );
 
-  //  const uKey = new Uint8Array(key);
-  //  const Snum = truncate(uKey);
   const HS8 = new Uint8Array(HS);
   const Snum = truncate(HS8);
   // Make sure we keep leading zeroes

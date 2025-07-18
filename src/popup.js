@@ -1,5 +1,5 @@
 import * as WWPass from 'wwpass-frontend';
-import { getHostname, consoleLog } from './utils';
+import { consoleLog } from './utils';
 
 let serverName = "passhub.net";
 
@@ -186,7 +186,6 @@ function installScript(tab, frame) {
         })
     })
 }
-
 
 browser.tabs.query({ active: true, currentWindow: true, })
   .then(tabs => {
@@ -545,12 +544,6 @@ function renderAccounts(message) {
     showPage('.not-found-page')
     document.querySelector(".icons").style.display = "flex";
 
-    /*    
-        document.querySelector(".lower-tab").style.display = "flex";
-    
-        document.querySelector(".refresh").style.display = "block";
-    */
-
     if (message.id === "payment") {
       document.getElementById("not-found-password").style.display = "none";
       document.getElementById("no-card-records").style.display = "block";
@@ -568,7 +561,6 @@ function renderAccounts(message) {
 
   showPage('#advice-page')
   document.querySelector(".icons").style.display = "flex";
-  // document.querySelector(".lower-tab").style.display = "flex";
 
   let cardDivDisplay = 'initial';
   if (message.id === "payment") {
@@ -577,11 +569,6 @@ function renderAccounts(message) {
   }
   document.querySelector(".credit-card").style.display = cardDivDisplay;
 
-  /*
-  for (const cardDiv of document.querySelectorAll('.show-credit-card')) {
-    cardDiv.style.display = cardDivDisplay;
-  }
-*/
   const adviceListDiv = document.querySelector('#advice-list');
 
   adviceListDiv.innerHTML = '';
@@ -705,10 +692,6 @@ for (let e of document.querySelectorAll('.help-link')) {
 
 function activatePassHubTab() {
 
-  //const manifest = chrome.runtime.getManifest();
-  // const urlList = manifest.externally_connectable.matches;
-  // chrome.tabs.query({url: ['https://passhub.net/*', 'http://localhost:8080/*:'] }, function(passHubTabs) {
-
   consoleLog(`server name is ${serverName}`)
   browser.tabs.query({ url: `https://${serverName}/*`, currentWindow: true })
     .then(passHubTabs => {
@@ -762,9 +745,6 @@ function backgroundConnect() {
 
       document.querySelector(".icons").style.display = "none";
 
-      //      document.querySelector(".lower-tab").style.display = "none";
-
-
       const ticketURL = `${m.urlBase}getticket.php`;
 
       document.querySelector("#logo").title = `Open page ${m.serverName}`;
@@ -775,7 +755,7 @@ function backgroundConnect() {
         //passkey: document.querySelector('#button--login'),
         ticketURL,
         callbackURL: loginCallback,
-        log: console.log
+        // log: console.log
       });
       return;
     }
@@ -783,14 +763,11 @@ function backgroundConnect() {
     if (m.id == "create account") {
       showPage(".create-account-page");
       document.querySelector(".icons").style.display = "none";
-      //      document.querySelector(".lower-tab").style.display = "none";
       document.querySelector(".create-account-page .open-passhub-tab").innerText = serverName;
     }
 
     if (m.id === "signed") {
       document.querySelector(".login-page").style.display = "none";
-
-      //      document.querySelector(".lower-tab").style.display = "flex";
 
       browser.tabs.query({ active: true, currentWindow: true })
         .then(tabs => {
@@ -830,13 +807,10 @@ function backgroundConnect() {
   });
 }
 
-
-
 document.querySelector('.logout').onclick = function () {
   bgConnectionPort.postMessage({ id: 'logout' });
   window.close();
 }
-
 
 document.querySelector('.refresh').addEventListener('click', () => {
   bgConnectionPort.postMessage({ id: 'refresh' });

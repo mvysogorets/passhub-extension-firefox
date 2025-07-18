@@ -106,7 +106,6 @@ header>div {
   min-height: 62px;
 }
 
-
 #not-a-regular-page-url {
   font-family: OpenSansBold;
   overflow: hidden;
@@ -312,25 +311,4 @@ svg circle.otp-dial {
   font-size: 14px;
   line-height: 19px;
   color: #8d8d94;
-}
-
-.found-footer {
-  display: flex;
-  justify-content: space-between;
-}
-
-.lower-tab {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  padding: 10px 40px;
-  color: var(--link-color);
-  font-family: OpenSansBold;
-  font-style: normal;
-  font-size: 15.5px;
-  line-height: 21px;
-}
-
-.logout-div {
-  cursor: pointer;
 }
