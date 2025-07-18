@@ -1,7 +1,7 @@
 // GPL: https://github.com/passff/passff
 
 // const consoleLog = console.log;
-const consoleLog = () => {};
+const consoleLog = () => { };
 
 
 consoleLog('content script start');
@@ -26,7 +26,7 @@ let fillCounter = 0;
 let intervalID = null;
 let usernameID = null;
 
-function  initFillCredentials() {
+function initFillCredentials() {
   consoleLog('initFillCredentials');
   fillCounter = 0
   usernameID = null;
@@ -49,7 +49,7 @@ function fillCredentials(loginData = null) {
   if (!loginData) {
     // not quite clear why, e.g. immediate redirect
     clearInterval(intervalID);
-    intervalID =null;
+    intervalID = null;
     return;
   }
   let usernameInput = null;
@@ -63,14 +63,14 @@ function fillCredentials(loginData = null) {
     consoleLog(inputs.length);
   } else {
     clearInterval(intervalID);
-    intervalID =null;
+    intervalID = null;
     return;
   }
 
   consoleLog(`fillCounter ${fillCounter}`);
 
 
-  for(let input of inputs) {
+  for (let input of inputs) {
     if (input.offsetParent === null) {
       continue;
     }
@@ -104,7 +104,7 @@ function fillCredentials(loginData = null) {
     setInputValue(passwordInput, loginData.password);
     consoleLog(`clearInterval 2`);
     clearInterval(intervalID);
-    intervalID =null;
+    intervalID = null;
     return;
   }
   if (passwordInput) {
@@ -112,7 +112,7 @@ function fillCredentials(loginData = null) {
     setInputValue(passwordInput, loginData.password);
     consoleLog(`clearInterval 3`);
     clearInterval(intervalID);
-    intervalID =null;
+    intervalID = null;
     return;
   }
 
@@ -138,7 +138,7 @@ function fillCredentials(loginData = null) {
     if (fillCounter > 20) {
       consoleLog('contentScript: nothing found');
       clearInterval(intervalID);
-      intervalID =null;
+      intervalID = null;
       return;
     }
   }
@@ -150,74 +150,74 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.id === "loginRequest") {
     initFillCredentials();
-//    fillCredentials(message);
+    //    fillCredentials(message);
     intervalID = setInterval(() => {
-        fillCredentials(message); 
-        consoleLog(`fillCounter ${fillCounter}`)
-      },
+      fillCredentials(message);
+      consoleLog(`fillCounter ${fillCounter}`)
+    },
       100);
-      sendResponse({farewell: "ok"});
-      return;
-  }
-
-  if(message.id === 'card'){
-    fillCardData(message.card);
-    sendResponse({farewell: "ok"});
+    sendResponse({ farewell: "ok" });
     return;
   }
 
-  if(message.id==="payment status") {
-    const ccNumber= document.querySelectorAll('[autocomplete="cc-number"]');
-    const ccName= document.querySelectorAll('[autocomplete="cc-name"]');
-    const ccCsc= document.querySelectorAll('[autocomplete="cc-csc"]');
+  if (message.id === 'card') {
+    fillCardData(message.card);
+    sendResponse({ farewell: "ok" });
+    return;
+  }
 
-    const paymentStatus = { payment: ccNumber.length + ccName.length + ccCsc.length > 0 ?  "payment page": "not a payment page"  }
+  if (message.id === "payment status") {
+    const ccNumber = document.querySelectorAll('[autocomplete="cc-number"]');
+    const ccName = document.querySelectorAll('[autocomplete="cc-name"]');
+    const ccCsc = document.querySelectorAll('[autocomplete="cc-csc"]');
+
+    const paymentStatus = { payment: ccNumber.length + ccName.length + ccCsc.length > 0 ? "payment page" : "not a payment page" }
     consoleLog('response');
     consoleLog(paymentStatus);
     sendResponse(paymentStatus);
     return;
   }
-  sendResponse({farewell: "goodbye"});
+  sendResponse({ farewell: "goodbye" });
 });
 
 function fillCardData(card) {
   const cardnum = document.querySelectorAll('[autocomplete="cc-number"]');
 
-  if(cardnum.length > 0) {
-    setInputValue(cardnum[0], card[3]);    
+  if (cardnum.length > 0) {
+    setInputValue(cardnum[0], card[3]);
   }
 
-  let name= document.querySelectorAll('[autocomplete="cc-name"]');
-  if(name.length > 0) {
-    setInputValue(name[0], card[4]);    
+  let name = document.querySelectorAll('[autocomplete="cc-name"]');
+  if (name.length > 0) {
+    setInputValue(name[0], card[4]);
   } else {
-    name= document.querySelectorAll('[autocomplete="ccname"]');
-    if(name.length > 0) {
-      setInputValue(name[0], card[4]);    
+    name = document.querySelectorAll('[autocomplete="ccname"]');
+    if (name.length > 0) {
+      setInputValue(name[0], card[4]);
     }
   }
 
-  let exp= document.querySelectorAll('[autocomplete="cc-exp"]');
-  if(exp.length > 0) {
-    setInputValue(exp[0], `${card[5]}/${card[6]}`);    
+  let exp = document.querySelectorAll('[autocomplete="cc-exp"]');
+  if (exp.length > 0) {
+    setInputValue(exp[0], `${card[5]}/${card[6].slice(-2)}`);
   } else {
     let month = document.querySelectorAll('[autocomplete="cc-exp-month"]');
-    if(month.length > 0) {
+    if (month.length > 0) {
       setInputValue(month[0], card[5]);
     }
     let year = document.querySelectorAll('[autocomplete="cc-exp-year"]');
-    if(year.length > 0) {
+    if (year.length > 0) {
       let twoDigitYear = card[6];
-      if(card[6].length > 2) {
+      if (card[6].length > 2) {
         twoDigitYear = card[6]
       }
       setInputValue(year[0], card[6]);
     }
   }
 
-  const csc= document.querySelectorAll('[autocomplete="cc-csc"]');
-  if(csc.length > 0) {
-    setInputValue(csc[0], card[7]);    
+  const csc = document.querySelectorAll('[autocomplete="cc-csc"]');
+  if (csc.length > 0) {
+    setInputValue(csc[0], card[7]);
   }
 }
 

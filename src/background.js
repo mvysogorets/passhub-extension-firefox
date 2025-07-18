@@ -1,7 +1,9 @@
 import axios from "axios";
 import * as passhubCrypto from "./crypto";
 import WsConnection from "./wsConnection";
-import {getApiURL, getWsURL, setHostname, getHostname, consoleLog} from './utils';
+import { getTOTP2 } from "./totp";
+
+import { getApiURL, getWsURL, setHostname, getHostname, consoleLog } from './utils';
 
 let state = "login";
 let theSafes = [];
@@ -10,9 +12,24 @@ let popupConnected = false;
 let popupConnectionPort;
 let wsConnection = null;
 
+const IDLE_TIMEOUT = 60 * 60 * 8;
+let activityTimestamp = 0;
+let activityTimer = null;
+
+
+function stopActivityTimer() {
+  if (activityTimer) {
+    clearTimeout(activityTimer)
+    activityTimer = null;
+  }
+}
+
+function startActivityTimer() {
+  stopActivityTimer()
+  activityTimer = setTimeout(logout, IDLE_TIMEOUT * 1000)
+}
 
 consoleLog("background started");
-
 
 const wsMessageInd = (message) => {
   try {
@@ -26,35 +43,34 @@ const wsMessageInd = (message) => {
   }
 }
 
-
 function initServerUrl() {
   consoleLog('initServerURL');
-  let currentServer = {passhubHost:"passhub.net"};
+  let currentServer = { passhubHost: "passhub.net" };
 
   browser.storage.local.get("passhubHost")
-  .then(data => {
-    consoleLog("bg get storage");
-    consoleLog(data);
-    if(!data || !data.passhubHost ||(data.passhubHost == '')) {
-      currentServer = {passhubHost:"passhub.net"};
-    } else {
-      currentServer = data;
-    }
-    setHostname(currentServer.passhubHost);
-    if(wsConnection) {
-      consoleLog('wsConnection');
-      consoleLog(wsConnection);
-      wsConnection.close();
-      wsConnection = null;
-    }
-    state = "login";
-  })
+    .then(data => {
+      consoleLog("bg get storage");
+      consoleLog(data);
+      if (!data || !data.passhubHost || (data.passhubHost == '')) {
+        currentServer = { passhubHost: "passhub.net" };
+      } else {
+        currentServer = data;
+      }
+      setHostname(currentServer.passhubHost);
+      if (wsConnection) {
+        consoleLog('wsConnection');
+        consoleLog(wsConnection);
+        wsConnection.close();
+        wsConnection = null;
+      }
+      state = "login";
+    })
 
-  .catch(err =>{
-    consoleLog('catch 19');
-    consoleLog(err);
-    setHostname("passhub.net");
-  });
+    .catch(err => {
+      consoleLog('catch 19');
+      consoleLog(err);
+      setHostname("passhub.net");
+    });
 }
 
 initServerUrl();
@@ -85,137 +101,195 @@ function setCsrfToken(t) {
 }
 
 function getVerifier() {
-    return csrfToken;
+  return csrfToken;
 }
 
 function notifyPopup(m) {
-  if(popupConnected) {
+  if (popupConnected) {
     popupConnectionPort.postMessage(m);
   }
-} 
+}
 
-browser.runtime.onConnect.addListener(port =>  {
+function logout() {
+  stopActivityTimer()
+  wsConnection.close();
+
+  consoleLog('logout received');
+  state = "logout_request";
+  consoleLog('state ' + state);
+  /*  
+    try {
+      popupConnectionPort.postMessage({ id: state });
+    } catch (err) {
+      consoleLog('catch 144')
+    }
+  */
+  axios.get(`${getApiURL()}logoutSPA.php`, {})
+    .then((reply) => {
+      consoleLog(reply);
+      // consoleLog("csrf token:", reply.headers["x-csrf-token"]);
+      //setCsrfToken(reply.headers["x-csrf-token"]);
+      const result = reply.data;
+      if (result.status == "Ok") {
+        state = "login";
+        try {
+          //          popupConnectionPort.postMessage({ id: state });
+          popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
+
+        } catch (err) {
+          // do nothing
+        }
+        return;
+      }
+    });
+}
+
+browser.runtime.onConnect.addListener(port => {
   popupConnectionPort = port;
 
-  popupConnectionPort.onDisconnect.addListener(port =>  {
+  popupConnectionPort.onDisconnect.addListener(port => {
     consoleLog('background: popup disconnected');
     consoleLog(port);
     popupConnected = false;
-    if(state === "create account") {
-      state="login";
+    if (state === "create account") {
+      state = "login";
     }
   });
-  
+
   consoleLog('bg got connection with');
   consoleLog(popupConnectionPort);
 
+
+
   popupConnected = true;
-  popupConnectionPort.onMessage.addListener(function(message,sender){
+
+  if (state === "signed") {
+    let timeNow = Date.now();
+    if (((timeNow - activityTimestamp) / 1000) > IDLE_TIMEOUT) {
+      logout();
+      return;
+    }
+  }
+
+  popupConnectionPort.onMessage.addListener(function (message, sender) {
     consoleLog('bg received');
     consoleLog(message);
 
-    if(message.id === "loginCallback") {
+    if (message.id === "loginCallback") {
       state = "signing in..";
-      popupConnectionPort.postMessage({id: state});
+      popupConnectionPort.postMessage({ id: state });
       axios.get(`${getApiURL()}loginSPA.php${message.urlQuery}`, {})
-      .then( reply => {
-        consoleLog(reply);
-        const result = reply.data;
+        .then(reply => {
+          consoleLog(reply);
+          const result = reply.data;
 
-        if (result.status == "not found") {
-          state = "create account";
-          popupConnectionPort.postMessage({id: state});
-          return;
-        }
-
-        if (result.status == "Ok") {
-          consoleLog("csrf token:", reply.headers["x-csrf-token"]);
-          setCsrfToken(reply.headers["x-csrf-token"]);
-          state = "getting data..";
-          popupConnectionPort.postMessage({id: state});
-          if(wsConnection) {
-            wsConnecttion.close();
-            wsConnection = null;
+          if (result.status == "not found") {
+            state = "create account";
+            popupConnectionPort.postMessage({ id: state });
+            return;
           }
-          wsConnection = new WsConnection(getWsURL(), wsMessageInd);
-      
-          downloadUserData();
-        }
-      })
-      .catch(err => {
-        consoleLog(err);
-      });
+
+          if (result.status == "Ok") {
+            consoleLog("csrf token:", reply.headers["x-csrf-token"]);
+            setCsrfToken(reply.headers["x-csrf-token"]);
+            state = "getting data..";
+            popupConnectionPort.postMessage({ id: state });
+            if (wsConnection) {
+              wsConnection.close();
+              wsConnection = null;
+            }
+            wsConnection = new WsConnection(getWsURL(), wsMessageInd);
+
+            downloadUserData();
+          }
+        })
+        .catch(err => {
+          consoleLog(err);
+        });
       return;
     }
-    if(message.id === "advise request") {
+    if (message.id === "advise request") {
       const url = new URL(message.url);
       let hostname = url.hostname.toLowerCase();
       if (hostname.substring(0, 4) === "www.") {
         hostname = hostname.substring(4);
       }
-      if(hostname.length === 0) {
+      if (hostname.length === 0) {
         hostname = url.pathname;
       }
-      if(state === "signed") {
-        let foundRecords = advise(message.url);
-        if(foundRecords.length > 0) {
-          consoleLog('bg advise:')
-          consoleLog(foundRecords);
-        } else {
-          consoleLog('bg advise: nothing found')
-        }
-        popupConnectionPort.postMessage({id: 'advise', found: foundRecords, hostname,  serverName: getHostname()});
-        return;
-      }
-    }
-
-    if(message.id === "payment page") {
-      if(state === "signed") {
-        const cards=paymentCards();
-        consoleLog(cards);
-        popupConnectionPort.postMessage({id: 'payment', found: cards,  serverName: getHostname()});
-        return;
-      }
-    }
-
-
-    if(message.id === "logout") {
-      wsConnection.close();
-
-      consoleLog('logout received');
-      state = "logout_request";
-      consoleLog('state ' + state);
-      try {
-       popupConnectionPort.postMessage({id: state});
-      } catch(err) {
-        consoleLog('catch 144')
-      }
-      axios.get(`${getApiURL()}logoutSPA.php`, {})
-      .then((reply) => {
-        consoleLog(reply);
-        // consoleLog("csrf token:", reply.headers["x-csrf-token"]);
-        //setCsrfToken(reply.headers["x-csrf-token"]);
-        const result = reply.data;
-        if (result.status == "Ok") {
-          state="login";
-          try {
-            popupConnectionPort.postMessage({id: state});
-          } catch(err) {
-            // do nothing
-          }
+      if (state === "signed") {
+        let timeNow = Date.now();
+        if (((timeNow - activityTimestamp) / 1000) > IDLE_TIMEOUT) {
+          logout();
           return;
         }
-      });
+        activityTimestamp = Date.now();
+
+        startActivityTimer()
+
+
+        /*
+                let foundRecords = await advise(message.url);
+                if (foundRecords.length > 0) {
+                  consoleLog('bg advise:')
+                  consoleLog(foundRecords);
+                } else {
+                  consoleLog('bg advise: nothing found')
+                }
+                popupConnectionPort.postMessage({ id: 'advise', found: foundRecords, hostname, serverName: getHostname() });
+                return;
+        */
+        advise(message.url)
+          .then(foundRecords => {
+            if (foundRecords.length > 0) {
+              consoleLog('bg advise:')
+              consoleLog(foundRecords);
+            } else {
+              consoleLog('bg advise: nothing found')
+            }
+            popupConnectionPort.postMessage({ id: 'advise', found: foundRecords, hostname, serverName: getHostname() });
+            return;
+          })
+        return;
+      }
     }
-/*
-    if(message.id === "openPasshubWindow") {
-      browser.tabs.create({url:'./frontend/index.html'});
+
+    if (message.id === "payment page") {
+      if (state === "signed") {
+
+        let timeNow = Date.now();
+        if (((timeNow - activityTimestamp) / 1000) > IDLE_TIMEOUT) {
+          logout();
+          return;
+        }
+        activityTimestamp = Date.now();
+        startActivityTimer()
+
+        const cards = paymentCards();
+        consoleLog(cards);
+        popupConnectionPort.postMessage({ id: 'payment', found: cards, serverName: getHostname() });
+        return;
+      }
+    }
+
+    if (message.id === "refresh") {
+      refreshUserData();
       return;
     }
-*/
+
+    if (message.id === "logout") {
+      logout();
+      return;
+    }
+    /*
+        if(message.id === "openPasshubWindow") {
+          browser.tabs.create({url:'./frontend/index.html'});
+          return;
+        }
+    */
   });
-  popupConnectionPort.postMessage({id: state, urlBase: getApiURL(), serverName: getHostname()})
-}); 
+  popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
+});
 
 
 function normalizeFolder(folder, items, folders) {
@@ -324,39 +398,52 @@ function decryptSafes(eSafes) {
   return Promise.all(promises);
 }
 
-function downloadUserData()  {
+function downloadUserData() {
   axios
-  .post(`${getApiURL()}get_user_datar.php`, {
-    verifier: getVerifier(),
-  })
-  .then((result) => {
-    if (result.data.status === "Ok") {
-      state = "decrypting..";
-      popupConnectionPort.postMessage({id: state});
+    .post(`${getApiURL()}get_user_datar.php`, {
+      verifier: getVerifier(),
+    })
+    .then((result) => {
+      if (result.data.status === "Ok") {
+        state = "decrypting..";
+        popupConnectionPort.postMessage({ id: state });
 
-      const data = result.data.data;
-      passhubCrypto
-      .getPrivateKey(data)
-      .then(() => {
-        const safes = data.safes;
-        return decryptSafes(data.safes).then(() => {
-          safes.sort((a, b) =>
-            a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-          );
-          normalizeSafes(safes);
-          theSafes = safes;
-          state = "signed";
-          consoleLog("state = signed");
-          popupConnectionPort.postMessage({id: state});
-          wsConnection.connect();
-        });
-      })
-    }
-  });
+        const data = result.data.data;
+        passhubCrypto
+          .getPrivateKey(data)
+          .then(() => {
+            const safes = data.safes;
+            return decryptSafes(data.safes).then(() => {
+              safes.sort((a, b) =>
+                a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+              );
+              normalizeSafes(safes);
+              theSafes = safes;
+              activityTimestamp = Date.now();
+              state = "signed";
+              consoleLog("state = signed");
+              if (('websocket' in data) && (data.websocket == true)) {
+                wsConnection.connect();
+              }
+
+              popupConnectionPort.postMessage({ id: state })
+              /*              
+                              .catch(err => {
+                                consoleLog("popup already closed, do not bother")
+                                consoleLog(err)
+                              });
+              */
+            });
+          })
+      }
+    });
 }
 
-const refreshUserData = ({ safes = []} = {}) => {
+const refreshUserData = ({ safes = [] } = {}) => {
   consoleLog(safes);
+  state = "getting data..";
+  popupConnectionPort.postMessage({ id: state });
+
   const self = this;
   axios
     .post(`${getApiURL()}get_user_datar.php`, {
@@ -365,6 +452,9 @@ const refreshUserData = ({ safes = []} = {}) => {
     .then((response) => {
       const result = response.data;
       if (result.status === "Ok") {
+        state = "decrypting..";
+        popupConnectionPort.postMessage({ id: state });
+
         const data = result.data;
         // const safes = data.safes;
         return decryptSafes(data.safes).then(() => {
@@ -373,6 +463,10 @@ const refreshUserData = ({ safes = []} = {}) => {
           );
           normalizeSafes(data.safes);
           theSafes = data.safes;
+          state = "signed";
+          consoleLog("state = signed");
+          popupConnectionPort.postMessage({ id: state })
+
         });
       }
       /*
@@ -395,8 +489,8 @@ function paymentCards() {
     if (safe.key) {
       // key!= null => confirmed, better have a class
       for (const item of safe.rawItems) {
-  
-        if(item.version === 5 && item.cleartext[0] === "card") {
+
+        if (item.version === 5 && item.cleartext[0] === "card") {
           result.push({
             safe: safe.name,
             title: item.cleartext[1],
@@ -413,7 +507,29 @@ function paymentCards() {
 }
 
 
-function advise(url) {
+function hostInItem(hostname, item) {
+  const urls = item.cleartext[3].split("\x01");
+
+  for (let url of urls) {
+    try {
+      url = url.toLowerCase();
+      if (url.substring(0, 4) != "http") {
+        url = "https://" + url;
+      }
+      url = new URL(url);
+      let itemHost = url.hostname.toLowerCase();
+      if (itemHost.substring(0, 4) === "www.") {
+        itemHost = itemHost.substring(4);
+      }
+      if (itemHost == hostname) {
+        return true;
+      }
+    } catch (err) { }
+  }
+  return false
+}
+
+async function advise(url) {
 
   const u = new URL(url);
   let hostname = u.hostname.toLowerCase();
@@ -427,38 +543,54 @@ function advise(url) {
         // key!= null => confirmed, better have a class
         const items = safe.rawItems;
 
-        for(const item of items) {
+        for (const item of items) {
+          if (hostInItem(hostname, item)) {
+            try {
+              if (item.version === 5 && item.cleartext[0] === "card") {
+                continue;
+              }
+              /*
+                            let itemUrl = item.cleartext[3].toLowerCase().trim();
+                            if (itemUrl.length === 0) {
+                              continue;
+                            }
+              
+                            if (itemUrl.substring(0, 4) != "http") {
+                              itemUrl = "https://" + itemUrl;
+                            }
+              
+                            itemUrl = new URL(itemUrl);
+                            let itemHost = itemUrl.hostname.toLowerCase();
+                            if (itemHost.substring(0, 4) === "www.") {
+                              itemHost = itemHost.substring(4);
+                            }
+                              */
+              //              if (itemHost == hostname) {
+              if ((item.cleartext.length > 5) && (item.cleartext[5].length > 0)) {
+                const secret = item.cleartext[5];
 
-          try {
-            if(item.version === 5 && item.cleartext[0] === "card") {
-              continue;
+                let [totp, totp_next] = await getTOTP2(secret)
+                result.push({
+                  safe: safe.name,
+                  title: item.cleartext[0],
+                  username: item.cleartext[1],
+                  password: item.cleartext[2],
+                  totp,
+                  totp_next
+                });
+              } else {
+                result.push({
+                  safe: safe.name,
+                  title: item.cleartext[0],
+                  username: item.cleartext[1],
+                  password: item.cleartext[2],
+                })
+                //                }
+              }
+            } catch (err) {
+              consoleLog('catch 392');
+              // consoleLog(err); 
             }
-
-            let itemUrl = item.cleartext[3].toLowerCase().trim();
-            if(itemUrl.length === 0) {
-              continue;
-            }
-            
-            if (itemUrl.substring(0, 4) != "http") {
-              itemUrl = "https://" + itemUrl;
-            }
-
-            itemUrl = new URL(itemUrl);
-            let itemHost = itemUrl.hostname.toLowerCase();
-            if (itemHost.substring(0, 4) === "www.") {
-              itemHost = itemHost.substring(4);
-            }
-            if (itemHost == hostname) {
-              result.push({
-                safe: safe.name,
-                title: item.cleartext[0],
-                username: item.cleartext[1],
-                password: item.cleartext[2],
-              });
-            }
-          } catch (err) {
-            consoleLog('catch 392');
-            // consoleLog(err); 
           }
         }
       }

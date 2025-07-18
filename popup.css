@@ -1,0 +1,366 @@
+@font-face {
+  font-family: OpenSans;
+  src: url("fonts/OpenSans-Regular.ttf");
+}
+
+@font-face {
+  font-family: OpenSansBold;
+  src: url("fonts/OpenSans-Bold.ttf");
+}
+
+:root {
+  --width: 400px;
+  --link-color: #31ba68;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  width: var(--width);
+}
+
+.container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+
+#modal-mask {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  /*  background: rgba(80, 80, 80, 0.5); */
+  z-index: 2;
+}
+
+header {
+  height: 80px;
+  background-image: url("images/ext-bkg1.jpg");
+  background-size: var(--width) 80px;
+  /*  margin-bottom: 13px; */
+}
+
+header>div {
+  padding: 0 40px;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+#logo {
+  cursor: pointer;
+  margin-top: 36px;
+  width: 120px;
+  height: 24px;
+
+}
+
+#logo:hover {
+  margin-top: 35px;
+  margin-left: -1px;
+  width: 126px;
+  height: 26px;
+}
+
+.refresh {
+  margin-right: 20px;
+  height: 24px;
+  width: 24px;
+  vertical-align: text-bottom;
+  fill: white;
+  opacity: 0.5;
+}
+
+.refresh:hover {
+  opacity: 0.8;
+}
+
+.help {
+  width: 20px;
+  height: 20px;
+  margin-right: 20px;
+  cursor: pointer;
+  background-image: url("images/help.svg");
+}
+
+.help:hover {
+  background-image: url("images/help-hover.svg");
+}
+
+.close-popup {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  background-image: url("images/close.svg");
+}
+
+.close-popup:hover {
+  background-image: url("images/close-hover.svg");
+}
+
+/*--------*/
+
+.page {
+  padding: 20px 40px;
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 16px;
+  line-height: 24px;
+  min-height: 62px;
+}
+
+
+#not-a-regular-page-url {
+  font-family: OpenSansBold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+  padding: 16px 40px 0;
+}
+
+
+/*--------*/
+
+.create-account-page {
+  min-height: 62px;
+}
+
+.open-passhub-tab {
+  color: var(--link-color);
+  font-family: OpenSansBold;
+  font-style: normal;
+  font-size: 15.5px;
+  line-height: 21px;
+  cursor: pointer;
+  margin: 5px 0;
+}
+
+
+/*--------*/
+
+
+
+#paygate {
+  margin: 18px 40px;
+  min-height: 62px;
+  width: 320px;
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 16px;
+  line-height: 22px;
+  display: none;
+}
+
+#advice-list {
+
+  font-family: OpenSansBold;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 14px;
+  line-height: 19px;
+  color: #1b1b26;
+  margin-bottom: 9px;
+}
+
+/*--------*/
+
+.show-credit-card {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+}
+
+.credit-card {
+  height: 24px;
+  width: 24px;
+  vertical-align: text-bottom;
+  fill: white;
+  opacity: 0.5;
+}
+
+.credit-card {
+  fill: black;
+}
+
+.credit-card:hover {
+  opacity: 0.8;
+}
+
+
+.found-entry {
+  font-family: OpenSans;
+  background-color: rgba(27, 27, 38, 0.1);
+  margin-bottom: 2px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  padding-left: 20px;
+  position: relative;
+}
+
+.found-entry .three-dots {
+  position: absolute;
+  right: 0;
+  top: 0;
+  padding-left: 20px;
+  padding-right: 10px;
+  padding-top: 10px;
+  display: none;
+}
+
+.found-entry .three-dots:hover {
+  right: 3px;
+}
+
+.found-entry .three-dots:hover img {
+  height: 21px;
+}
+
+.found-entry:not(:has(.found-value:hover)):hover {
+  background-color: rgba(27, 27, 38, 0.05);
+}
+
+.found-entry:not(:has(.found-value:hover)):hover>span {
+  display: inline;
+}
+
+.copy-dialog {
+  position: absolute;
+  z-index: 10;
+  right: 10px;
+  top: 10px;
+  padding: 10px 15px 10px 20px;
+  width: 200px;
+  border-radius: 5px;
+
+  font-size: 16px;
+  line-height: 32px;
+  min-width: 180px;
+  background-color: white;
+  box-shadow: 0 4px 34px #7e7e8f47;
+}
+
+.copy-dialog div {
+  cursor: pointer;
+}
+
+.copy-dialog div:hover {
+  background-color: #eee;
+}
+
+.copied {
+  display: none;
+  height: 100%;
+  width: 5em;
+  background: #b3ebd0;
+  position: absolute;
+  top: -3px;
+  left: -10px;
+  align-items: center;
+  color: var(--link-color);
+  border-radius: 5px;
+  padding: 0 0 5px 2px;
+}
+
+.copied:hover {
+  font-size: 18px;
+}
+
+.found-entry:hover {
+  background-color: rgba(27, 27, 38, 0.2);
+}
+
+.found-title {
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 18px;
+  line-height: 25px;
+  margin-bottom: 4px;
+  color: #1b1b26;
+}
+
+.found-safe {
+  font-family: OpenSans;
+  font-style: italic;
+  font-weight: normal;
+  font-size: 14px;
+  line-height: 19px;
+  color: #1b1b26;
+}
+
+.found-totp {
+
+  display: flex;
+  position: relative;
+  color: #1b1b26;
+
+  font-family: OpenSans;
+  font-weight: normal;
+  font-size: 18px;
+  line-height: 27px;
+
+  margin: 10px 20px 10px 0;
+}
+
+.found-entry:not(:has(.found-value:hover)):hover {
+  background-color: rgba(27, 27, 38, 0.05);
+}
+
+.found-entry:not(:has(.found-value:hover)):hover>span {
+  display: inline;
+}
+
+.found-entry .totp-value {
+  position: relative;
+}
+
+.found-entry .totp-value:hover {
+  color: #009F1E;
+  font-size: 20px;
+}
+
+svg circle {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear;
+  stroke: #aaa;
+}
+
+svg circle.otp-dial {
+  stroke: #009F1E;
+}
+
+.found-username {
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 14px;
+  line-height: 19px;
+  color: #8d8d94;
+}
+
+.found-footer {
+  display: flex;
+  justify-content: space-between;
+}
+
+.lower-tab {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  padding: 10px 40px;
+  color: var(--link-color);
+  font-family: OpenSansBold;
+  font-style: normal;
+  font-size: 15.5px;
+  line-height: 21px;
+}
+
+.logout-div {
+  cursor: pointer;
+}
