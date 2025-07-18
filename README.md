@@ -20,9 +20,11 @@ The extension file list includes:
 /images
 background.js
 contentScript.js
-index.css
 login.css
 manifest.json
+options.js
+options.html
+popup.css
 popup.html
 popup.js
 ```
