@@ -1,4 +1,3 @@
-import axios from "axios";
 import * as passhubCrypto from "./crypto";
 import WsConnection from "./wsConnection";
 import { getTOTP2 } from "./totp";
@@ -93,9 +92,11 @@ browser.storage.onChanged.addListener(logStorageChange)
 
 
 function setCsrfToken(t) {
-  csrfToken = t;
-  consoleLog('csrfToken');
-  consoleLog(csrfToken);
+  if (t) {
+    csrfToken = t;
+    consoleLog('csrfToken');
+    consoleLog(csrfToken);
+  }
 }
 
 function getVerifier() {
@@ -108,27 +109,27 @@ function notifyPopup(m) {
   }
 }
 
-function logout() {
+async function logout() {
   stopActivityTimer()
   wsConnection.close();
 
   consoleLog('logout received');
   state = "logout_request";
   consoleLog('state ' + state);
-  axios.get(`${getApiURL()}logoutSPA.php`, {})
-    .then((reply) => {
-      consoleLog(reply);
-      const result = reply.data;
-      if (result.status == "Ok") {
-        state = "login";
-        try {
-          popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
-        } catch (err) {
-          // do nothing
-        }
-        return;
-      }
-    });
+
+  try {
+    const response = await fetch(`${getApiURL()}logoutSPA.php`)
+
+    if (!response.ok) {
+      throw new Error(`Response status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    state = "login";
+    popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
+  } catch (error) {
+    console.error(error.message);
+  }
 }
 
 browser.runtime.onConnect.addListener(port => {
@@ -156,42 +157,52 @@ browser.runtime.onConnect.addListener(port => {
     }
   }
 
+  async function loginCallback(message) {
+    try {
+      const response = await fetch(`${getApiURL()}loginSPA.php${message.urlQuery}`)
+
+      if (!response.ok) {
+        throw new Error(`Response status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.status == "not found") {
+        state = "create account";
+        popupConnectionPort.postMessage({ id: state });
+        return;
+      }
+
+      if (result.status == "Ok") {
+
+        setCsrfToken(response.headers.get("x-csrf-token"));
+        state = "getting data..";
+        popupConnectionPort.postMessage({ id: state });
+        if (wsConnection) {
+          wsConnection.close();
+          wsConnection = null;
+        }
+        wsConnection = new WsConnection(getWsURL(), wsMessageInd);
+
+        downloadUserData();
+      }
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
   popupConnectionPort.onMessage.addListener(function (message, sender) {
     consoleLog('bg received');
     consoleLog(message);
 
     if (message.id === "loginCallback") {
+
       state = "signing in..";
+
       popupConnectionPort.postMessage({ id: state });
-      axios.get(`${getApiURL()}loginSPA.php${message.urlQuery}`, {})
-        .then(reply => {
-          consoleLog(reply);
-          const result = reply.data;
 
-          if (result.status == "not found") {
-            state = "create account";
-            popupConnectionPort.postMessage({ id: state });
-            return;
-          }
-
-          if (result.status == "Ok") {
-            consoleLog("csrf token:", reply.headers["x-csrf-token"]);
-            setCsrfToken(reply.headers["x-csrf-token"]);
-            state = "getting data..";
-            popupConnectionPort.postMessage({ id: state });
-            if (wsConnection) {
-              wsConnection.close();
-              wsConnection = null;
-            }
-            wsConnection = new WsConnection(getWsURL(), wsMessageInd);
-
-            downloadUserData();
-          }
-        })
-        .catch(err => {
-          consoleLog(err);
-        });
+      loginCallback(message);
       return;
+
     }
     if (message.id === "advise request") {
       const url = new URL(message.url);
@@ -365,39 +376,48 @@ function decryptSafes(eSafes) {
   return Promise.all(promises);
 }
 
+
+
 function downloadUserData() {
-  axios
-    .post(`${getApiURL()}get_user_datar.php`, {
-      verifier: getVerifier(),
-    })
-    .then((result) => {
-      if (result.data.status === "Ok") {
-        state = "decrypting..";
-        popupConnectionPort.postMessage({ id: state });
 
-        const data = result.data.data;
-        passhubCrypto
-          .getPrivateKey(data)
-          .then(() => {
-            const safes = data.safes;
-            return decryptSafes(data.safes).then(() => {
-              safes.sort((a, b) =>
-                a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-              );
-              normalizeSafes(safes);
-              theSafes = safes;
-              activityTimestamp = Date.now();
-              state = "signed";
-              consoleLog("state = signed");
-              if (('websocket' in data) && (data.websocket == true)) {
-                wsConnection.connect();
-              }
+  const verifier = getVerifier();
 
-              popupConnectionPort.postMessage({ id: state })
-            });
-          })
+  fetch(`${getApiURL()}get_user_datar.php`, {
+    method: "POST",
+    body: JSON.stringify({ verifier })
+  })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Something went wrong 689');
       }
-    });
+      response.json()
+        .then(result => {
+          if (result.status != "Ok") {
+            throw new Error(`Response status: ${response.status}`);
+          }
+          state = "decrypting..";
+          popupConnectionPort.postMessage({ id: state });
+          const data = result.data;
+          passhubCrypto
+            .getPrivateKey(data)
+            .then(() => {
+              return decryptSafes(data.safes).then(() => {
+                data.safes.sort((a, b) =>
+                  a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+                );
+                normalizeSafes(data.safes);
+                theSafes = data.safes;
+                activityTimestamp = Date.now();
+                state = "signed";
+                consoleLog("state = signed");
+                if (('websocket' in data) && (data.websocket == true)) {
+                  wsConnection.connect();
+                }
+                popupConnectionPort.postMessage({ id: state })
+              });
+            })
+        })
+    })
 }
 
 const refreshUserData = ({ safes = [] } = {}) => {
@@ -405,19 +425,23 @@ const refreshUserData = ({ safes = [] } = {}) => {
   state = "getting data..";
   popupConnectionPort.postMessage({ id: state });
 
-  const self = this;
-  axios
-    .post(`${getApiURL()}get_user_datar.php`, {
-      verifier: getVerifier(),
-    })
+  const verifier = getVerifier();
+  fetch(`${getApiURL()}get_user_datar.php`, {
+    method: "POST",
+    body: JSON.stringify({ verifier })
+  })
     .then((response) => {
-      const result = response.data;
-      if (result.status === "Ok") {
+      if (response.ok) {
+        return response.json();
+      }
+      throw new Error('Something went wrong 689');
+    })
+    .then((responseJson) => {
+      if (responseJson.status === "Ok") {
+        const data = responseJson.data;
         state = "decrypting..";
         popupConnectionPort.postMessage({ id: state });
 
-        const data = result.data;
-        // const safes = data.safes;
         return decryptSafes(data.safes).then(() => {
           data.safes.sort((a, b) =>
             a.name.toLowerCase().localeCompare(b.name.toLowerCase())
@@ -427,9 +451,9 @@ const refreshUserData = ({ safes = [] } = {}) => {
           state = "signed";
           consoleLog("state = signed");
           popupConnectionPort.postMessage({ id: state })
-
         });
       }
+      throw new Error('Something went wrong 710');
     })
     .catch((error) => {
       consoleLog(error);
@@ -533,3 +557,267 @@ async function advise(url) {
   }
   return result;
 };
+
+
+
+
+//-----------------------------
+/*
+ 
+  if (result.status == "Ok") {
+    consoleLog("csrf token:", response.headers["x-csrf-token"]);
+    setCsrfToken(response.headers["x-csrf-token"]);
+    if (result.data.status === "Ok") {
+      state = "decrypting..";
+      popupConnectionPort.postMessage({ id: state });
+ 
+      const data = result.data.data;
+      passhubCrypto
+        .getPrivateKey(data)
+        .then(() => {
+          const safes = data.safes;
+          return decryptSafes(data.safes).then(() => {
+            safes.sort((a, b) =>
+              a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+            );
+            normalizeSafes(safes);
+            theSafes = safes;
+            activityTimestamp = Date.now();
+            state = "signed";
+            consoleLog("state = signed");
+            if (('websocket' in data) && (data.websocket == true)) {
+              wsConnection.connect();
+            }
+ 
+            popupConnectionPort.postMessage({ id: state })
+          });
+        })
+      return;
+    }
+    if (result.data.status === "not found") {
+      state = "account creation..";
+      popupConnectionPort.postMessage({ id: state });
+ 
+      const data = result.data.data;
+      passhubCrypto
+        .getPrivateKey(data)
+        .then(() => {
+          const safes = data.safes;
+          return decryptSafes(data.safes).then(() => {
+            safes.sort((a, b) =>
+              a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+            );
+            normalizeSafes(safes);
+            theSafes = safes;
+            activityTimestamp = Date.now();
+            state = "signed";
+            consoleLog("state = signed");
+popupConnectionPort.postMessage({ id: state })
+});
+      })
+return;
+
+
+  }
+});
+}
+*/
+
+/*
+function downloadUserData1() {
+  axios
+    .post(`${getApiURL()}get_user_datar.php`, {
+      verifier: getVerifier(),
+    })
+    .then((result) => {
+      if (result.data.status === "Ok") {
+        state = "decrypting..";
+        popupConnectionPort.postMessage({ id: state });
+
+        const data = result.data.data;
+        passhubCrypto
+          .getPrivateKey(data)
+          .then(() => {
+            const safes = data.safes;
+            return decryptSafes(data.safes).then(() => {
+              safes.sort((a, b) =>
+                a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+              );
+              normalizeSafes(safes);
+              theSafes = safes;
+              activityTimestamp = Date.now();
+              state = "signed";
+              consoleLog("state = signed");
+              if (('websocket' in data) && (data.websocket == true)) {
+                wsConnection.connect();
+              }
+
+              popupConnectionPort.postMessage({ id: state })
+            });
+          })
+        return;
+      }
+      if (result.data.status === "not found") {
+        state = "account creation..";
+        popupConnectionPort.postMessage({ id: state });
+
+        const data = result.data.data;
+        passhubCrypto
+          .getPrivateKey(data)
+          .then(() => {
+            const safes = data.safes;
+            return decryptSafes(data.safes).then(() => {
+              safes.sort((a, b) =>
+                a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+              );
+              normalizeSafes(safes);
+              theSafes = safes;
+              activityTimestamp = Date.now();
+              state = "signed";
+              consoleLog("state = signed");
+              popupConnectionPort.postMessage({ id: state })
+            });
+          })
+        return;
+
+
+      }
+    });
+}
+*/
+
+/*
+const refreshUserData = ({ safes = [] } = {}) => {
+  consoleLog(safes);
+  state = "getting data..";
+  popupConnectionPort.postMessage({ id: state });
+
+  const self = this;
+  axios
+    .post(`${getApiURL()}get_user_datar.php`, {
+      verifier: getVerifier(),
+    })
+    .then((response) => {
+      const result = response.data;
+      if (result.status === "Ok") {
+        state = "decrypting..";
+        popupConnectionPort.postMessage({ id: state });
+
+        const data = result.data;
+        // const safes = data.safes;
+        return decryptSafes(data.safes).then(() => {
+          data.safes.sort((a, b) =>
+            a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+          );
+          normalizeSafes(data.safes);
+          theSafes = data.safes;
+          state = "signed";
+          consoleLog("state = signed");
+          popupConnectionPort.postMessage({ id: state })
+
+        });
+      }
+    })
+    .catch((error) => {
+      consoleLog(error);
+    });
+};
+
+
+      axios.get(`${getApiURL()}logoutSPA.php`, {})
+      .then((reply) => {
+        consoleLog(reply);
+        const result = reply.data;
+        if (result.status == "Ok") {
+          state = "login";
+          try {
+            popupConnectionPort.postMessage({ id: state, urlBase: getApiURL(), serverName: getHostname() })
+          } catch (err) {
+            // do nothing
+          }
+          return;
+        }
+      });
+
+
+
+
+            axios.get(`${getApiURL()}loginSPA.php${message.urlQuery}`, {})
+      
+              .then(reply => {
+                consoleLog(reply);
+                const result = reply.data;
+      
+                if (result.status == "not found") {
+                  state = "create account";
+                  popupConnectionPort.postMessage({ id: state });
+                  return;
+                }
+      
+                if (result.status == "Ok") {
+                  consoleLog("csrf token:", reply.headers["x-csrf-token"]);
+                  setCsrfToken(reply.headers["x-csrf-token"]);
+                  state = "getting data..";
+                  popupConnectionPort.postMessage({ id: state });
+                  if (wsConnection) {
+                    wsConnection.close();
+                    wsConnection = null;
+                  }
+                  wsConnection = new WsConnection(getWsURL(), wsMessageInd);
+      
+                  downloadUserData();
+                }
+              })
+              .catch(err => {
+                consoleLog(err);
+              });
+      
+            return;
+
+
+            async function downloadUserData() {
+
+  const v = getVerifier();
+
+  const response = await fetch(`${getApiURL()}get_user_datar.php`, {
+    method: "POST",
+    //     body: JSON.stringify({ verifier: getVerifier() })
+    body: JSON.stringify({ verifier: v })
+  })
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`);
+  }
+  const result = await response.json();
+  if (result.status == "Ok") {
+    //    setCsrfToken(response.headers.get("x-csrf-token"));
+    state = "decrypting..";
+    popupConnectionPort.postMessage({ id: state });
+    const data = result.data;
+    passhubCrypto
+      .getPrivateKey(data)
+      .then(() => {
+        const safes = data.safes;
+        return decryptSafes(data.safes).then(() => {
+          safes.sort((a, b) =>
+            a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+          );
+          normalizeSafes(safes);
+          theSafes = safes;
+          activityTimestamp = Date.now();
+          state = "signed";
+          consoleLog("state = signed");
+          if (('websocket' in data) && (data.websocket == true)) {
+            wsConnection.connect();
+          }
+
+          popupConnectionPort.postMessage({ id: state })
+        });
+      })
+    return;
+  }
+}
+
+
+
+*/
+
