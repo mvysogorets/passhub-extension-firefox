@@ -1,5 +1,5 @@
 import * as WWPass from 'wwpass-frontend';
-import { consoleLog } from './utils';
+import { consoleLog, windowClose } from './utils';
 
 let serverName = "passhub.net";
 
@@ -12,6 +12,19 @@ let paymentFrames = [];
 
 let paymentStatus = "not a payment page";
 let paymentHost = null;
+
+function initSearch() {
+  activeTab = null;
+  frameResponded = 0;
+  validFrames = [];
+  sameUrlFrames = [];
+  paymentFrames = [];
+  paymentStatus = "not a payment page";
+  paymentHost = null;
+}
+
+let bgConnectionPort;
+
 
 function validFramesRemove(frame) {
   validFrames = validFrames.filter(e => e !== frame);
@@ -100,7 +113,21 @@ function gotPaymentStatus(tab, frame, response) {
       }
       consoleLog(`paymentHost ${paymentHost}`)
     }
-    backgroundConnect();
+
+    browser.tabs.query({ active: true, currentWindow: true })
+      .then(tabs => {
+        consoleLog("tabs");
+        consoleLog(tabs);
+        const tab = tabs[0];
+        if (paymentStatus == "payment page") {
+          bgConnectionPort.postMessage({ id: "payment page", url: tab.url, tabId: tab.id });
+        } else {
+          bgConnectionPort.postMessage({ id: "advise request", url: tab.url, tabId: tab.id });
+        }
+      })
+      .catch(err => {
+        consoleLog(err)
+      });
   }
 }
 
@@ -146,7 +173,7 @@ function notRegularPage(url) {
 function installScript(tab, frame) {
   consoleLog(`installScript for frame ${frame.frameId} ${frame.url}`);
 
-  browser.tabs.sendMessage(tab.id, { id: 'payment status' }, { frameId: frame.frameId })
+  browser.tabs.sendMessage(tab.id, { id: 'payment status' }, { frameId: frame.frameId })  // in case the script is already instatelled
     .then(response => {
       consoleLog(`response ${response.payment} from frame ${frame.frameId} ${frame.url}`);
       consoleLog(response);
@@ -186,63 +213,6 @@ function installScript(tab, frame) {
         })
     })
 }
-
-browser.tabs.query({ active: true, currentWindow: true, })
-  .then(tabs => {
-    activeTab = tabs[0];
-
-    consoleLog('activeTab');
-    consoleLog(activeTab);
-
-    let mainURL = new URL(activeTab.url);
-
-    consoleLog('mainURL');
-    consoleLog(mainURL);
-
-    if ((mainURL.host == "") || (mainURL.protocol != "https:")) {
-      notRegularPage(activeTab.url);
-      return;
-    }
-
-    let mainUrlFrames = [];  // do we need it?
-
-    browser.webNavigation.getAllFrames({ tabId: activeTab.id })
-      .then(frameList => {
-
-        consoleLog(`frameList with ${frameList.length} frames`);
-
-        for (let frame of frameList) {
-          consoleLog(`${frame.frameId} ${frame.url}`)
-          let frameURL = new URL(frame.url);
-
-          if ((frameURL.host !== "") || (frameURL.protocol == "https:")) {
-            validFrames.push(frame);
-            if (frameURL.host == mainURL.host) {
-              mainUrlFrames.push(frame);
-            }
-          }
-        }
-
-        consoleLog('mainUrlFrames');
-        consoleLog(mainUrlFrames);
-
-        if (mainUrlFrames.length == 0) {
-          notRegularPage(activeTab.url);
-          return;
-        }
-
-        consoleLog('Sending message "payment status"');
-
-        for (let frame of validFrames) {
-          installScript(activeTab, frame)
-        }
-      })
-      .catch(err => {
-        consoleLog('catch 105');
-        consoleLog(err);
-
-      })
-  });
 
 const dial =
   `<svg style="transform: rotate(90deg) scale(-1,1)" width="24" viewBox="0 0 200 200" version="1.1"
@@ -360,11 +330,21 @@ function copyDivEntryClick(ev, fieldName) {
 }
 
 function startCopiedTimer() {
+  //  consoleLog('323 timer started')
   setTimeout(() => {
+
+    window.close();
+
     document
       .querySelectorAll(".copied")
-      .forEach((e) => (e.style.display = "none"));
-    windowClose();
+      .forEach((e) => {
+        consoleLog('-e- 327');
+        consoleLog(e.style.display);
+        e.style.display = "none";
+      });
+    //     windowClose();
+
+    window.close();
 
   }, 1000);
 }
@@ -506,10 +486,12 @@ function renderFoundEntry(entryData, row) {
 
     totpValue.addEventListener('click', (ev) => {
       ev.stopPropagation();
+
       totpValue.querySelector('.copied').style.display = 'initial';
+      // ev.target.style.display = 'initial';
       startCopiedTimer();
       navigator.clipboard.writeText(entryData.totp.trim()).then(() => {
-        //windowClose();
+        // windowClose();
       })
     })
     totpDiv.appendChild(totpValue);
@@ -722,13 +704,12 @@ document.querySelector('.contact-us').onclick = function () {
   window.open('https://passhub.net/feedback19.php', 'passhub_contact_us');
 }
 
-let bgConnectionPort;
 
 function loginCallback(urlQuery) {
   bgConnectionPort.postMessage({ id: 'loginCallback', urlQuery });
 }
 
-function backgroundConnect() {
+function backgroundConnect11() {
   consoleLog("connecting with bg");
   bgConnectionPort = browser.runtime.connect({ name: "popup" });
 
@@ -752,10 +733,9 @@ function backgroundConnect() {
 
       WWPass.authInit({
         qrcode: document.querySelector('#qrcode'),
-        //passkey: document.querySelector('#button--login'),
         ticketURL,
         callbackURL: loginCallback,
-        // log: console.log
+        log: consoleLog
       });
       return;
     }
@@ -815,3 +795,141 @@ document.querySelector('.logout').onclick = function () {
 document.querySelector('.refresh').addEventListener('click', () => {
   bgConnectionPort.postMessage({ id: 'refresh' });
 })
+
+function explorePage() {
+  browser.tabs.query({ active: true, currentWindow: true, })
+    .then(tabs => {
+      activeTab = tabs[0];
+
+      consoleLog('activeTab');
+      consoleLog(activeTab);
+
+      let mainURL = new URL(activeTab.url);
+
+      consoleLog('mainURL');
+      consoleLog(mainURL);
+
+      if ((mainURL.host == "") || (mainURL.protocol != "https:")) {
+        notRegularPage(activeTab.url);
+        return;
+      }
+
+      let mainUrlFrames = [];  // do we need it?
+
+      browser.webNavigation.getAllFrames({ tabId: activeTab.id })
+        .then(frameList => {
+
+          consoleLog(`frameList with ${frameList.length} frames`);
+
+          for (let frame of frameList) {
+            consoleLog(`${frame.frameId} ${frame.url}`)
+            let frameURL = new URL(frame.url);
+
+            if ((frameURL.host !== "") || (frameURL.protocol == "https:")) {
+              validFrames.push(frame);
+              if (frameURL.host == mainURL.host) {
+                mainUrlFrames.push(frame);
+              }
+            }
+          }
+
+          consoleLog('mainUrlFrames');
+          consoleLog(mainUrlFrames);
+
+          if (mainUrlFrames.length == 0) {
+            notRegularPage(activeTab.url);
+            return;
+          }
+
+          consoleLog('Sending message "payment status"');
+
+          for (let frame of validFrames) {
+            installScript(activeTab, frame)
+          }
+        })
+        .catch(err => {
+          consoleLog('catch 105');
+          consoleLog(err);
+
+        })
+    });
+}
+
+function processBgMessage(m) {
+  consoleLog(`popup received message from background script, id ${m.id}`);
+  consoleLog(m);
+
+  if (m.id === "logout_request") {
+    return; //????
+  }
+
+  if (m.id === "login") {
+    showPage(".login-page");
+
+    document.querySelector(".icons").style.display = "none";
+
+    const ticketURL = `${m.urlBase}getticket.php`;
+
+    document.querySelector("#logo").title = `Open page ${m.serverName}`;
+    serverName = m.serverName;
+
+    WWPass.authInit({
+      qrcode: document.querySelector('#qrcode'),
+      ticketURL,
+      callbackURL: loginCallback,
+      log: consoleLog
+    });
+    return;
+  }
+
+  if (m.id == "create account") {
+    showPage(".create-account-page");
+    document.querySelector(".icons").style.display = "none";
+    document.querySelector(".create-account-page .open-passhub-tab").innerText = serverName;
+    return;
+  }
+
+  if ((m.id === "signing in..") || (m.id === "getting data..") || (m.id === "decrypting..")) {
+    consoleLog('- ' + m.id);
+    showPage('.wait-page');
+    document.querySelector(".icons").style.display = "none";
+    document.querySelector("#wait-message").innerText = m.id;
+    return;
+  }
+
+  if (m.id === "signed") {
+    document.querySelector(".login-page").style.display = "none";
+    initSearch();
+    explorePage();
+    return;
+  }
+
+  if ((m.id === "advise") || (m.id === "payment")) {
+    document.querySelector(".refresh").style.display = "initial";
+
+    if (m.serverName) {
+      document.querySelector("#logo").title = `Open page ${m.serverName}`;
+      serverName = m.serverName;
+    }
+    renderAccounts(m);
+    return;
+  }
+
+
+  // ?????
+}
+
+
+
+bgConnectionPort = browser.runtime.connect({ name: "popup" });
+bgConnectionPort.onMessage.addListener(processBgMessage);
+
+
+/* 
+  1. connect to background, login if necessary, 
+  2. explorePage by installing contentsripts-> collect individual frame results though gotPaymentStatus (actually = page status: payment, login or not found)
+  3. 
+
+*/
+
+
