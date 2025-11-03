@@ -3,6 +3,10 @@
 # dependencies
 /node_modules
 *.map
+*.zip
 /background.js
 /popup.js
+helper
+passhub-extension-firefox
+
 
