@@ -12,6 +12,7 @@ let paymentFrames = [];
 
 let paymentStatus = "not a payment page";
 let paymentHost = null;
+let foundRecords = [];
 
 function initSearch() {
   activeTab = null;
@@ -19,12 +20,13 @@ function initSearch() {
   validFrames = [];
   sameUrlFrames = [];
   paymentFrames = [];
+
   paymentStatus = "not a payment page";
   paymentHost = null;
+  foundRecords = [];
 }
 
 let bgConnectionPort;
-
 
 function validFramesRemove(frame) {
   validFrames = validFrames.filter(e => e !== frame);
@@ -166,7 +168,7 @@ function notRegularPage(url) {
   consoleLog('not a regular page');
   showPage('.not-a-regular-page');
 
-  document.querySelector(".icons").style.display = "none";
+  //  document.querySelector(".icons").style.display = "none";
   document.querySelector("#not-a-regular-page-url").innerText = url;
 }
 
@@ -249,12 +251,12 @@ let found = [];
 
 function updateOtp() {
   for (let i = 0; i < found.length; i++) {
-    if ('totp_next' in found[i]) {
-      found[i].totp = found[i].totp_next;
+    if ('totp_next' in foundRecords[i]) {
+      foundRecords[i].totp = foundRecords[i].totp_next;
       const record = document.querySelector(`[data-row = "${i}"]`)
       const totpValue = record.querySelector('.totp-value')
       if (totpValue) {
-        totpValue.innerText = found[i].totp;
+        totpValue.innerText = foundRecords[i].totp;
       }
     }
   }
@@ -299,7 +301,7 @@ function copyDivEntryClick(ev, fieldName) {
   const foundEntry = ev.target.closest('.found-entry');
   const row = parseInt(foundEntry.getAttribute('data-row'));
   if (paymentStatus == "payment page") {
-    const card = found[row].card;
+    const card = foundRecords[row].card;
     if (fieldName == "cc-name") {
       navigator.clipboard.writeText(card[4].trim())
     }
@@ -321,7 +323,7 @@ function copyDivEntryClick(ev, fieldName) {
       navigator.clipboard.writeText(card[7].trim())
     }
   } else {
-    const field = found[row][fieldName];
+    const field = foundRecords[row][fieldName];
     navigator.clipboard.writeText(field.trim())
   }
 
@@ -349,7 +351,7 @@ function startCopiedTimer() {
   }, 1000);
 }
 
-function renderFoundEntry(entryData, row) {
+function renderFoundEntry(entryData, row, mode) {
   const foundEntry = document.createElement('div');
   foundEntry.setAttribute('data-row', `${row}`);
   foundEntry.setAttribute('class', 'found-entry');
@@ -357,7 +359,7 @@ function renderFoundEntry(entryData, row) {
   const copyDialog = document.createElement('div');
   copyDialog.setAttribute('class', 'copy-dialog')
 
-  if (paymentStatus == "payment page") {
+  if (mode == "payment") {
     const copyCcName = document.createElement('div');
     copyCcName.innerHTML = '<span>Copy name</span>';
 
@@ -381,23 +383,6 @@ function renderFoundEntry(entryData, row) {
       copyDivEntryClick(ev, 'cc-csc');
     })
     copyDialog.append(copyCcCSC);
-    /*
-        const copyCcExpMonth = document.createElement('div');
-        copyCcExpMonth.innerHTML = '<span>Copy Exp. Month</span>';
-    
-        copyCcExpMonth.addEventListener('click', (ev) => {
-          copyDivEntryClick(ev, 'cc-exp-month');
-        })
-        copyDialog.append(copyCcExpMonth);
-    
-        const copyCcExpYear = document.createElement('div');
-        copyCcExpYear.innerHTML = '<span>Copy Exp. Year</span>';
-    
-        copyCcExpYear.addEventListener('click', (ev) => {
-          copyDivEntryClick(ev, 'cc-exp-year');
-        })
-        copyDialog.append(copyCcExpYear);
-    */
     const copyCcExp = document.createElement('div');
     const card = entryData.card;
     copyCcExp.innerHTML = `<span>Copy Exp. Date ${card[5]}/${card[6].slice(-2)}</span>`;
@@ -506,60 +491,76 @@ for (const cardSwitch of document.querySelectorAll('.credit-card')) {
   })
 }
 
+function onPasswordSwitchClick() {
+  browser.tabs.query({ active: true, currentWindow: true })
+    .then(tabs => {
+      consoleLog("tabs");
+      consoleLog(tabs);
+      const tab = tabs[0];
+      bgConnectionPort.postMessage({ id: "advise request", url: tab.url, tabId: tab.id });
+    })
+    .catch(err => {
+      consoleLog(err)
+    });
+}
+
+for (const passwordsSwitch of document.querySelectorAll('.passwords-icon')) {
+  passwordsSwitch.addEventListener('click', onPasswordSwitchClick)
+}
+
 function renderAccounts(message) {
-
-  if (paymentHost) {
-    let platform = paymentPlatform();
-    consoleLog(`platform ${platform}`)
-    if (platform) {
-      consoleLog(`platform1 ${platform}`);
-      document.getElementById('paygate').style.display = 'block';
-      document.getElementById('paygate-url').innerText = platform;
-    }
-  }
-
-  found = message.found;
 
   consoleLog('renderAccount found: ' + message.found.length);
 
-  if (found.length === 0) {
-    showPage('.not-found-page')
-    document.querySelector(".icons").style.display = "flex";
-
-    if (message.id === "payment") {
-      document.getElementById("not-found-password").style.display = "none";
-      document.getElementById("no-card-records").style.display = "block";
-    } else {
-      document.getElementById("not-found-password").style.display = "block";
-      document.getElementById("no-card-records").style.display = "none";
-
-      document.querySelector(".credit-card").style.display = "initial";
-
-      const notFoundHostName = document.getElementById("not-found-hostname");
-      notFoundHostName.innerText = message.hostname;
-    }
-    return;
-  }
-
-  showPage('#advice-page')
   document.querySelector(".icons").style.display = "flex";
 
-  let cardDivDisplay = 'initial';
-  if (message.id === "payment") {
-    paymentStatus = "payment page";
-    cardDivDisplay = 'none';
-  }
-  document.querySelector(".credit-card").style.display = cardDivDisplay;
+  if (message.id == "payment") {
+    document.querySelector(".credit-card").style.display = 'none';
+    document.querySelector(".passwords-icon").style.display = 'initial';
 
+    if (paymentHost) {
+      let platform = paymentPlatform();
+      consoleLog(`platform ${platform}`)
+      if (platform) {
+        consoleLog(`platform1 ${platform}`);
+        document.getElementById('paygate').style.display = 'block';
+        document.getElementById('paygate-url').innerText = platform;
+      }
+    }
+    if (message.found.length == 0) {
+      showPage('.not-found-page')
+      document.getElementById("not-found-password").style.display = "none";
+      document.getElementById("no-card-records").style.display = "block";
+      return;
+    }
+  }
+
+  if (message.id == "advise") {
+    document.querySelector(".credit-card").style.display = "initial";
+    document.querySelector(".passwords-icon").style.display = 'none';
+
+    if (message.found.length == 0) {
+      showPage('.not-found-page')
+      document.getElementById("not-found-password").style.display = "block";
+      document.getElementById("no-card-records").style.display = "none";
+      const notFoundHostName = document.getElementById("not-found-hostname");
+      notFoundHostName.innerText = message.hostname;
+      return;
+    }
+  }
+
+  foundRecords = message.found;
+
+  showPage('#advice-page');
   const adviceListDiv = document.querySelector('#advice-list');
 
   adviceListDiv.innerHTML = '';
 
-  consoleLog('renderAccount in advice');
+  consoleLog(`renderAccount for ${message.id}`);
   try {
-    for (let i = 0; i < found.length; i++) {
+    for (let i = 0; i < message.found.length; i++) {
       consoleLog('rendering ' + i + 1);
-      const foundEntry = renderFoundEntry(found[i], i);
+      const foundEntry = renderFoundEntry(foundRecords[i], i, message.id);
 
       adviceListDiv.appendChild(foundEntry);
     }
@@ -597,7 +598,7 @@ function advItemClick(e) {
               tabs[0].id,
               {
                 id: 'card',
-                card: found[row].card,
+                card: foundRecords[row].card,
               },
               { frameId: frame.frameId })
               .then(response => {
@@ -617,16 +618,16 @@ function advItemClick(e) {
       for (let frame of sameUrlFrames) {
         consoleLog('frame');
         consoleLog(frame);
-        if ("totp" in found[row]) {
-          navigator.clipboard.writeText(found[row].totp.trim())
+        if ("totp" in foundRecords[row]) {
+          navigator.clipboard.writeText(foundRecords[row].totp.trim())
         }
 
         browser.tabs.sendMessage(
           tabs[0].id,
           {
             id: 'loginRequest',
-            username: found[row].username,
-            password: found[row].password,
+            username: foundRecords[row].username,
+            password: foundRecords[row].password,
           },
           { frameId: frame.frameId }
         )
@@ -651,8 +652,15 @@ function showPage(pageSelector) {
   const thePage = document.querySelector(pageSelector);
   thePage.style.display = 'block';
 
-  document.querySelector(".credit-card").style.display = "initial";
-  document.querySelector(".refresh").style.display = "initial";
+  if (pageSelector != '.not-a-regular-page') {
+    document.querySelector(".refresh").style.display = "initial";
+    consoleLog('656')
+  } else {
+    document.querySelector(".refresh").style.display = "none";
+    document.querySelector(".passwords-icon").style.display = "none";
+    document.querySelector(".credit-card").style.display = "none";
+  }
+
   document.querySelector(".logout").style.display = "initial";
   document.querySelector(".icons").style.display = "flex";
 }
@@ -709,83 +717,6 @@ function loginCallback(urlQuery) {
   bgConnectionPort.postMessage({ id: 'loginCallback', urlQuery });
 }
 
-function backgroundConnect11() {
-  consoleLog("connecting with bg");
-  bgConnectionPort = browser.runtime.connect({ name: "popup" });
-
-  bgConnectionPort.onMessage.addListener(m => {
-    consoleLog(`popup received message from background script, id ${m.id}`);
-    consoleLog(m);
-
-    if (m.id === "logout_request") {
-      return;
-    }
-
-    if (m.id === "login") {
-      showPage(".login-page");
-
-      document.querySelector(".icons").style.display = "none";
-
-      const ticketURL = `${m.urlBase}getticket.php`;
-
-      document.querySelector("#logo").title = `Open page ${m.serverName}`;
-      serverName = m.serverName;
-
-      WWPass.authInit({
-        qrcode: document.querySelector('#qrcode'),
-        ticketURL,
-        callbackURL: loginCallback,
-        log: consoleLog
-      });
-      return;
-    }
-
-    if (m.id == "create account") {
-      showPage(".create-account-page");
-      document.querySelector(".icons").style.display = "none";
-      document.querySelector(".create-account-page .open-passhub-tab").innerText = serverName;
-    }
-
-    if (m.id === "signed") {
-      document.querySelector(".login-page").style.display = "none";
-
-      browser.tabs.query({ active: true, currentWindow: true })
-        .then(tabs => {
-          consoleLog("tabs");
-          consoleLog(tabs);
-          const tab = tabs[0];
-          if (paymentStatus == "payment page") {
-            bgConnectionPort.postMessage({ id: "payment page", url: tab.url, tabId: tab.id });
-          } else {
-            bgConnectionPort.postMessage({ id: "advise request", url: tab.url, tabId: tab.id });
-          }
-        })
-        .catch(err => {
-          consoleLog(err)
-        });
-    }
-
-    if ((m.id === "advise") || (m.id === "payment")) {
-      document.querySelector(".refresh").style.display = "initial";
-
-      if (m.serverName) {
-        document.querySelector("#logo").title = `Open page ${m.serverName}`;
-        serverName = m.serverName;
-      }
-
-      renderAccounts(m);
-      return;
-    }
-
-    if ((m.id === "signing in..") || (m.id === "getting data..") || (m.id === "decrypting..")) {
-      consoleLog('- ' + m.id);
-      showPage('.wait-page');
-      document.querySelector(".icons").style.display = "none";
-      document.querySelector("#wait-message").innerText = m.id;
-      return;
-    }
-  });
-}
 
 document.querySelector('.logout').onclick = function () {
   bgConnectionPort.postMessage({ id: 'logout' });
@@ -931,5 +862,4 @@ bgConnectionPort.onMessage.addListener(processBgMessage);
   3. 
 
 */
-
 

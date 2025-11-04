@@ -3,9 +3,6 @@
 // const consoleLog = console.log;
 const consoleLog = () => { };
 
-
-consoleLog('content script start');
-
 function fireEvent(el, name) {
   el.dispatchEvent(
     new Event(name, {
@@ -17,9 +14,16 @@ function fireEvent(el, name) {
 }
 
 function setInputValue(input, value) {
+
+  fireEvent(input, 'focus');
+  fireEvent(input, 'focusin');
+  fireEvent(input, 'keydown');
   input.value = value;
   fireEvent(input, 'input');
   fireEvent(input, 'change');
+  fireEvent(input, 'keyup');
+  fireEvent(input, 'blur');
+  fireEvent(input, 'focusout');
 }
 
 let fillCounter = 0;
@@ -27,7 +31,6 @@ let intervalID = null;
 let usernameID = null;
 
 function initFillCredentials() {
-  consoleLog('initFillCredentials');
   fillCounter = 0
   usernameID = null;
 
@@ -36,30 +39,86 @@ function initFillCredentials() {
 }
 
 function isUsernameCandidate(input) {
-  if (input.id.toLowerCase().search('search') != -1) {
+
+  if ("id" in input && input.id.toLowerCase() == "password") {
     return false;
   }
-  if (input.placeholder.toLowerCase().search('search') != -1) {
+  if ("id" in input && input.id.toLowerCase() == "captcha") {
     return false;
   }
+
+  if ("id" in input && input.id.toLowerCase().search('search') != -1) {
+    return false;
+  }
+  if ("placeholder" in input && input.placeholder.toLowerCase().search('search') != -1) {
+    return false;
+  }
+
+  if (input.getBoundingClientRect().bottom < 0) {
+    return false;
+  }
+
   return true;
 }
 
+function findAllInputs() {
+
+  const inputs = []
+
+  function greet1(r) {
+    console.log(r)
+    const x = []
+    const all = r.querySelectorAll('*');
+
+    all.forEach(e => {
+      if (e.shadowRoot && e.shadowRoot.mode === 'open') {
+        console.log('element with shadowERoot')
+        console.log(e)
+        x.push(e);
+        const allInputs = e.shadowRoot.querySelectorAll('input')
+        allInputs.forEach(i => inputs.push(i))
+        greet1(e.shadowRoot)
+      }
+    })
+
+  }
+
+  document.querySelectorAll('input').forEach(i => inputs.push(i))
+
+  greet1(document)
+
+  /*    
+      if(inputs.length > 0) {
+  //        console.log('inputs found:')
+  //        console.log(inputs)
+          inputs[0].value = 'xxx'
+      } else {
+          console.log('no inputs found')
+      }
+  */
+  return inputs;
+};
+
+
 function fillCredentials(loginData = null) {
   if (!loginData) {
-    // not quite clear why, e.g. immediate redirect
+
     clearInterval(intervalID);
     intervalID = null;
     return;
   }
+
   let usernameInput = null;
   let passwordInput = null;
+  let frameId = loginData.frameId; // debug
 
-  const inputs = document.querySelectorAll('input');
+  //  const inputs = document.querySelectorAll('input');
+  const inputs = findAllInputs()
+
 
   fillCounter++;
 
-  if (fillCounter < 200) {
+  if (fillCounter < 100) {
     consoleLog(inputs.length);
   } else {
     clearInterval(intervalID);
@@ -67,34 +126,81 @@ function fillCredentials(loginData = null) {
     return;
   }
 
-  consoleLog(`fillCounter ${fillCounter}`);
+  /*  
+  
+    if (frameId != 0) {
+      consoleLog('frameId');
+      consoleLog(frameId);
+      let p = document.querySelector("#password-input");
+      consoleLog('password element');
+      consoleLog(document.querySelector("#password-input"));
+      if (p) {
+        consoleLog('password element found');
+        passwordInput = p;
+      }
+  
+      let u = document.querySelector("#userId-input");
+      consoleLog('userId element');
+      consoleLog(document.querySelector("#userId-input"));
+      if (u) {
+        consoleLog('username element found');
+        usernameInput = u;
+        //      usernameInput.value = loginData.username;
+        //      u.dispatchEvent(new KeyboardEvent('keydown', { 'key': 'a' }));
+  
+  
+      }
+  
+      const ui = document.querySelector("#userId-input");
+      consoleLog('userId-input');
+      consoleLog(document.querySelector("#userId-input"));
+      if (ui) {
+        consoleLog('userId-input element found');
+      }
+  
+    }
+  */
 
+  if (!(usernameInput && passwordInput)) {
+    consoleLog('contentScript: looking for username & password inputs');
+    for (let input of inputs) {
+      consoleLog('input');
+      consoleLog(input);
 
-  for (let input of inputs) {
-    if (input.offsetParent === null) {
-      continue;
-    }
-    if (input.disabled === true) {
-      continue;
-    }
-    if (window.getComputedStyle(input).visibility == 'hidden') {
-      continue;
-    }
+      if (input.offsetParent === null) {
+        continue;
+      }
+      if (input.disabled === true) {
+        continue;
+      }
+      if (window.getComputedStyle(input).visibility == 'hidden') {
+        continue;
+      }
+      const itype = input.type.toLowerCase();
+      if ((passwordInput == null) || (usernameInput == null)) {
+        if ((itype == 'text') || (itype == 'email')) {
+          if (isUsernameCandidate(input)) usernameInput = input;
+        }
+      }
 
-    const itype = input.type.toLowerCase();
-    if (itype === 'text' && passwordInput == null) {
-      if (isUsernameCandidate(input)) usernameInput = input;
-    }
-    if (itype === 'email' && passwordInput == null) {
-      usernameInput = input;
-    }
+      if ("id" in input && input.id == "password") {
+        passwordInput = input;
+      }
 
-    if (itype === 'password') {
-      passwordInput = input;
-    }
+      if (itype === 'password') {
+        passwordInput = input;
+      }
 
-    if (usernameInput && passwordInput) {
-      break;
+      if (usernameInput && passwordInput) {
+        break;
+      }
+
+      /*
+            if (usernameInput || passwordInput) {
+              break;
+            }
+      */
+
     }
   }
 
@@ -102,7 +208,7 @@ function fillCredentials(loginData = null) {
     consoleLog('contentScript done: username & password');
     setInputValue(usernameInput, loginData.username);
     setInputValue(passwordInput, loginData.password);
-    consoleLog(`clearInterval 2`);
+
     clearInterval(intervalID);
     intervalID = null;
     return;
@@ -110,7 +216,7 @@ function fillCredentials(loginData = null) {
   if (passwordInput) {
     consoleLog('contentScript done: password');
     setInputValue(passwordInput, loginData.password);
-    consoleLog(`clearInterval 3`);
+
     clearInterval(intervalID);
     intervalID = null;
     return;
@@ -135,8 +241,9 @@ function fillCredentials(loginData = null) {
   }
 
   if (usernameInput == null && passwordInput == null) {
-    if (fillCounter > 20) {
-      consoleLog('contentScript: nothing found');
+    //    if (fillCounter > 20) {
+    if (true) {
+      consoleLog('contentScript nothing found');
       clearInterval(intervalID);
       intervalID = null;
       return;
@@ -144,81 +251,211 @@ function fillCredentials(loginData = null) {
   }
 }
 
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  consoleLog('contentScript received:');
-  consoleLog(message);
+function altCardnum() {
+  const inputs = document.querySelectorAll('input');
+  for (const input of inputs) {
+    consoleLog('input');
+    if (input.name.match(/card.{0,1}number|cc_number/i)) {
+      return input;
+    }
+  }
+  return null;
+}
 
+function altHolderName() {
+  const inputs = document.querySelectorAll('input');
+  for (const input of inputs) {
+    if (input.name.match(/nameoncard|accountHolderName|cardholderName|cc-name/i)) {
+      return input;
+    }
+  }
+  return null;
+}
+
+function altCCExp() {
+
+  let result = document.querySelector('#expiration-date');
+  if (result) {
+    return result;
+  }
+
+  return document.querySelector('input[name="cc_mmyy"]'); // e.g. vultr
+
+}
+
+function altCCYear() {
+  let elements = document.querySelectorAll('select');
+  for (const element of elements) {
+    if (element.id.match(/cc.{0,1}year/i)) {
+      let digits = element.querySelector('option').value.length;
+      return { element, digits };
+    }
+    if (element.name.match(/year/i)) {
+      let digits = element.querySelector('option').value.length;
+      return { element, digits };
+    }
+  }
+  return null;
+}
+
+
+function altCCMonth() {
+  const elements = document.querySelectorAll('select');
+  for (const element of elements) {
+    if (element.id.match(/cc.{0,1}month/i)) {
+      let digits = element.querySelector('option').value.length;
+      return { element, digits };
+    }
+    if (element.name.match(/month/i)) {
+      let digits = element.querySelectorAll('option')[1].value.length; // first element (index 0) is usually a placeholder
+      return { element, digits };
+    }
+  }
+  return null;
+}
+
+function altCSC() {
+  let element = document.querySelector('input[name="cvv"]');
+  if (!element) {
+    element = document.querySelector('input[name="cc_cvv"]');
+  }
+  if (!element) {
+    element = document.querySelector('input[name="cc_cscv"]'); // e.g. vultr
+  }
+  return element;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  consoleLog(message);
+  consoleLog(sender.tab ?
+    "from a content script:" + sender.tab.url :
+    "from the extension");
   if (message.id === "loginRequest") {
     initFillCredentials();
-    //    fillCredentials(message);
-    intervalID = setInterval(() => {
-      fillCredentials(message);
-      consoleLog(`fillCounter ${fillCounter}`)
-    },
-      100);
-    sendResponse({ farewell: "ok" });
+
+    fillCredentials(message);
+
+    /*    
+        intervalID = setInterval(() => {
+          fillCredentials(message);
+          consoleLog(`fillCounter ${fillCounter}`)
+        },
+          100);
+    */
+    sendResponse({ farewell: "Ok" });
     return;
   }
 
-  if (message.id === 'card') {
+  if (message.id === "card") {
     fillCardData(message.card);
-    sendResponse({ farewell: "ok" });
+    sendResponse({ farewell: "Ok" });
     return;
   }
 
   if (message.id === "payment status") {
-    const ccNumber = document.querySelectorAll('[autocomplete="cc-number"]');
-    const ccName = document.querySelectorAll('[autocomplete="cc-name"]');
-    const ccCsc = document.querySelectorAll('[autocomplete="cc-csc"]');
+    let ccNumber = document.querySelector('[autocomplete="cc-number"]');
 
-    const paymentStatus = { payment: ccNumber.length + ccName.length + ccCsc.length > 0 ? "payment page" : "not a payment page" }
-    consoleLog('response');
+    if (!ccNumber) {
+      ccNumber = altCardnum();
+    }
+    /*
+        if (ccNumber) {
+          const paymentStatus = { payment: "payment page" }
+          consoleLog('response 2');
+          consoleLog(paymentStatus);
+          sendResponse(paymentStatus);
+        }
+    */
+
+    const ccName = document.querySelector('[autocomplete="cc-name"]');
+    const ccCSC = document.querySelector('[autocomplete="cc-csc"]');
+
+    const paymentStatus = { payment: ((ccNumber != null) || (ccName != null) || (ccCSC != null)) ? "payment page" : "not a payment page" }
+    consoleLog('response 1');
     consoleLog(paymentStatus);
     sendResponse(paymentStatus);
     return;
   }
-  sendResponse({ farewell: "goodbye" });
-});
+  sendResponse({ farewell: "contentScript goodbye" });
+}
+);
 
 function fillCardData(card) {
-  const cardnum = document.querySelectorAll('[autocomplete="cc-number"]');
+  let cardnum = document.querySelector('[autocomplete="cc-number"]');
 
-  if (cardnum.length > 0) {
-    setInputValue(cardnum[0], card[3]);
+  if (!cardnum) {
+    cardnum = altCardnum();
   }
 
-  let name = document.querySelectorAll('[autocomplete="cc-name"]');
-  if (name.length > 0) {
-    setInputValue(name[0], card[4]);
-  } else {
-    name = document.querySelectorAll('[autocomplete="ccname"]');
-    if (name.length > 0) {
-      setInputValue(name[0], card[4]);
-    }
+  if (cardnum) {
+    setInputValue(cardnum, card[3]);
   }
 
-  let exp = document.querySelectorAll('[autocomplete="cc-exp"]');
-  if (exp.length > 0) {
-    setInputValue(exp[0], `${card[5]}/${card[6].slice(-2)}`);
-  } else {
-    let month = document.querySelectorAll('[autocomplete="cc-exp-month"]');
-    if (month.length > 0) {
-      setInputValue(month[0], card[5]);
+  let name = document.querySelector('[autocomplete="cc-name"]');
+  if (!name) {
+    name = altHolderName();
+  }
+  if (name) {
+    setInputValue(name, card[4]);
+  }
+
+  let exp = document.querySelector('[autocomplete="cc-exp"]');
+  let digits = 0;
+
+  if (!exp) {
+    exp = altCCExp();
+  }
+  if (exp) {
+    let twoDigitYear = card[6];
+    if (card[6].length > 2) {
+      twoDigitYear = card[6].slice(-2); // Get last two characters
     }
-    let year = document.querySelectorAll('[autocomplete="cc-exp-year"]');
-    if (year.length > 0) {
+
+    setInputValue(exp, `${card[5]}/${twoDigitYear}`);
+  } else {
+    let month = document.querySelector('[autocomplete="cc-exp-month"]');
+    if (!month) {
+      month = altCCMonth();
+      if (month) {
+        digits = month.digits;
+        month = month.element;
+      }
+    }
+    let cardMonth = card[5];
+
+    if (digits === 1) {
+      if (cardMonth[0] === '0') {
+        cardMonth = card[5].slice(-1);
+      }
+    }
+
+    if (month) {
+      setInputValue(month, cardMonth);
+    }
+
+    let year = document.querySelector('[autocomplete="cc-exp-year"]');
+    if (!year) {
+      year = altCCYear();
+      if (year) {
+        digits = year.digits;
+        year = year.element;
+      }
+    }
+    if (year) {
       let twoDigitYear = card[6];
       if (card[6].length > 2) {
         twoDigitYear = card[6]
       }
-      setInputValue(year[0], card[6]);
+      setInputValue(year, card[6]);
     }
   }
 
-  const csc = document.querySelectorAll('[autocomplete="cc-csc"]');
-  if (csc.length > 0) {
-    setInputValue(csc[0], card[7]);
+  let csc = document.querySelector('[autocomplete="cc-csc"]');
+  if (!csc) {
+    csc = altCSC();
+  }
+  if (csc) {
+    setInputValue(csc, card[7]);
   }
 }
 
-let scriptDummyResult = 'scriptDummyResult';
