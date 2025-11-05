@@ -312,3 +312,41 @@ svg circle.otp-dial {
   line-height: 19px;
   color: #8d8d94;
 }
+
+#server-name-element {
+  text-decoration: none;
+  color: var(--link-color);
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-family: OpenSansBold;
+}
+
+#server-name-element:hover {
+  text-decoration: underline;
+  color: var(--link-color);
+}
+
+#server-name-element:visited {
+  text-decoration: none;
+  color: var(--link-color);
+}
+
+#danger-http {
+  background: red;
+  color: white;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: none;
+
+  font-family: OpenSans;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 16px;
+  line-height: 24px;
+
+}
+
+#danger-http span {
+  font-size: larger;
+  font-family: OpenSansBold;
+}
