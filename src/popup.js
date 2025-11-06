@@ -740,9 +740,13 @@ function explorePage() {
       consoleLog('mainURL');
       consoleLog(mainURL);
 
-      if ((mainURL.host == "") || (mainURL.protocol != "https:")) {
+      if (mainURL.host == "") {
         notRegularPage(activeTab.url);
         return;
+      }
+
+      if (mainURL.protocol != "https:") {
+        document.querySelector("#danger-http").style.display = "block";
       }
 
       let mainUrlFrames = [];  // do we need it?
@@ -786,6 +790,17 @@ function explorePage() {
     });
 }
 
+function setServerName(name) {
+  serverName = name;
+  if (name === "passhub.net") {
+    document.querySelector("#server-name-element").parentElement.style.display = "none";
+    return;
+  }
+  document.querySelector("#server-name-element").parentElement.style.display = "block";
+  document.querySelector("#server-name-element").setAttribute("href", `https://${serverName}`);
+  document.querySelector("#server-name-element").innerText = serverName;
+}
+
 function processBgMessage(m) {
   consoleLog(`popup received message from background script, id ${m.id}`);
   consoleLog(m);
@@ -802,7 +817,7 @@ function processBgMessage(m) {
     const ticketURL = `${m.urlBase}getticket.php`;
 
     document.querySelector("#logo").title = `Open page ${m.serverName}`;
-    serverName = m.serverName;
+    setServerName(m.serverName);
 
     WWPass.authInit({
       qrcode: document.querySelector('#qrcode'),
@@ -840,7 +855,7 @@ function processBgMessage(m) {
 
     if (m.serverName) {
       document.querySelector("#logo").title = `Open page ${m.serverName}`;
-      serverName = m.serverName;
+      setServerName(m.serverName);
     }
     renderAccounts(m);
     return;
