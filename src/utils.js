@@ -1,11 +1,27 @@
-// const consoleLog = console.log;
+
+
+
+//production  mode
+
 const consoleLog = () => { };
+const windowClose = window.close;
+
+
+
+
+// Debug mode:
+/*
+const consoleLog = console.log;
+const windowClose = () => { consoleLog('windowClose') };
+*/
+
 
 let hostname = 'passhub.net';
 
 function getApiURL() {
   return `https://ext.${hostname}/`;
 }
+
 
 function getWsURL() {
   return `wss://ext.${hostname}/wsapp/`;
@@ -25,5 +41,6 @@ export {
   getWsURL,
   setHostname,
   getHostname,
-  consoleLog
+  consoleLog,
+  windowClose
 }
