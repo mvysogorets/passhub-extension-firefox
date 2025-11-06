@@ -11,7 +11,11 @@ let popupConnected = false;
 let popupConnectionPort;
 let wsConnection = null;
 
-const IDLE_TIMEOUT = 60 * 60 * 8;
+const IDLE_TIMEOUT = 60 * 60 * 4;  // 4 hours
+// const IDLE_TIMEOUT = 60 * 1;
+
+
+
 let activityTimestamp = 0;
 let activityTimer = null;
 
@@ -413,7 +417,7 @@ function downloadUserData() {
                 if (('websocket' in data) && (data.websocket == true)) {
                   wsConnection.connect();
                 }
-                popupConnectionPort.postMessage({ id: state })
+                popupConnectionPort.postMessage({ id: state, serverName: getHostname() })
               });
             })
         })
