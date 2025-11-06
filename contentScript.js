@@ -66,14 +66,14 @@ function findAllInputs() {
   const inputs = []
 
   function greet1(r) {
-    console.log(r)
+    consoleLog(r)
     const x = []
     const all = r.querySelectorAll('*');
 
     all.forEach(e => {
       if (e.shadowRoot && e.shadowRoot.mode === 'open') {
-        console.log('element with shadowERoot')
-        console.log(e)
+        consoleLog('element with shadowERoot')
+        consoleLog(e)
         x.push(e);
         const allInputs = e.shadowRoot.querySelectorAll('input')
         allInputs.forEach(i => inputs.push(i))
@@ -86,16 +86,6 @@ function findAllInputs() {
   document.querySelectorAll('input').forEach(i => inputs.push(i))
 
   greet1(document)
-
-  /*    
-      if(inputs.length > 0) {
-  //        console.log('inputs found:')
-  //        console.log(inputs)
-          inputs[0].value = 'xxx'
-      } else {
-          console.log('no inputs found')
-      }
-  */
   return inputs;
 };
 
