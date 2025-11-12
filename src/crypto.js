@@ -88,6 +88,21 @@ function getPrivateKey(data) {
     });
 }
 
+
+const encryptPrivateKey = (cPrivateKey, ticket) => WWPass.cryptoPromise.getWWPassCrypto(ticket, 'AES-CBC')
+  .then((thePromise) => {
+    const iv = new Uint8Array([176, 178, 97, 142, 156, 31, 45, 30, 81, 210, 85, 14, 202, 203, 86, 240]);
+    return getSubtle().encrypt(
+      {
+        name: 'AES-CBC',
+        iv,
+      },
+      thePromise.clientKey,
+      str2ab(cPrivateKey)
+    ).then(abToB64);
+  });
+
+
 function getPrivateKeyOld(ePrivateKey, ticket) {
 
   return WWPass.cryptoPromise.getWWPassCrypto(ticket, 'AES-CBC')
@@ -410,6 +425,7 @@ function moveFile(item, srcBinaryKey, dstBinaryKey) {
 
 export {
   getPrivateKey,
+  encryptPrivateKey,
   decryptAesKey,
   encryptAesKey,
   decodeItem,
