@@ -1,0 +1,16 @@
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <defs>
+        <linearGradient id="l-gr" x1=".29" y1="46.69" x2="43.1" y2="3.24" gradientUnits="userSpaceOnUse">
+            <stop offset=".1" stop-color="#07DA70" />
+            <stop offset=".35" stop-color="#01ACAC" />
+            <stop offset=".65" stop-color="#004C73" />
+            <stop offset=".9" stop-color="#1B1B26" />
+        </linearGradient>
+    </defs>
+    <!-- Centered logo in square format -->
+    <g transform="translate(10.275, 7) scale(1)">
+        <path
+            d="M0 9.1h7.34V50H0V9.1zm12.04 0h7.34v31.66h-7.34V9.1zM31.42 0v40.76h-7.34V0h7.34zm4.69 9.1h7.34v31.66h-7.34V9.1z"
+            fill="url(#l-gr)" />
+    </g>
+</svg>
